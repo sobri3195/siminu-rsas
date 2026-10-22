@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Calendar } from "../components/Calendar";
 import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../storage/db";
@@ -169,7 +170,11 @@ export function Outgoing() {
 export function Agenda() {
   const { run } = useApp();
   const events = useLiveQuery(() => db.events.toArray()) || [];
-  const tasks = useLiveQuery(() => db.tasks.toArray()) || [];
+  const allTasks = useLiveQuery(() => db.tasks.toArray()) || [];
+  const dispositions = useLiveQuery(() => db.dispositions.toArray()) || [];
+  const tasks = allTasks.filter(
+    (t) => !dispositions.find((d) => d.id === t.dispositionId)?.cancelled,
+  );
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(today());
@@ -192,36 +197,39 @@ export function Agenda() {
       <button onClick={() => setCalendar(!calendar)}>
         {calendar ? "Tampilan daftar" : "Tampilan kalender"}
       </button>
-      <div className={calendar ? "calendar-grid" : "task-grid"}>
-        {events.map((e) => (
-          <article className="panel" key={e.id}>
-            <Badge>Kegiatan</Badge>
-            <h2>{e.title}</h2>
-            <p>
-              {dateLabel(e.date)} · {e.location}
-            </p>
-            {e.letterId && (
-              <Link to={`/surat-masuk/${e.letterId}`}>Buka surat</Link>
-            )}
-          </article>
-        ))}
-        {tasks
-          .filter((t) => t.status !== "Selesai")
-          .slice(0, 12)
-          .map((t) => (
-            <Link
-              to={`/surat-masuk/${t.letterId}`}
-              className="panel"
-              key={t.id}
-            >
-              <Badge>Tenggat tugas</Badge>
-              <h3>{t.unitName}</h3>
+      {calendar ? (
+        <Calendar events={events} tasks={tasks} />
+      ) : (
+        <div className="task-grid">
+          {events.map((e) => (
+            <article className="panel" key={e.id}>
+              <Badge>Kegiatan</Badge>
+              <h2>{e.title}</h2>
               <p>
-                {dateLabel(t.deadline)} · {t.instruction}
+                {dateLabel(e.date)} · {e.location}
               </p>
-            </Link>
+              {e.letterId && (
+                <Link to={`/surat-masuk/${e.letterId}`}>Buka surat</Link>
+              )}
+            </article>
           ))}
-      </div>
+          {tasks
+            .filter((t) => t.status !== "Selesai")
+            .map((t) => (
+              <Link
+                to={`/surat-masuk/${t.letterId}`}
+                className="panel"
+                key={t.id}
+              >
+                <Badge>Tenggat tugas</Badge>
+                <h3>{t.unitName}</h3>
+                <p>
+                  {dateLabel(t.deadline)} · {t.instruction}
+                </p>
+              </Link>
+            ))}
+        </div>
+      )}
       {open && (
         <Modal title="Tambah kegiatan" onClose={() => setOpen(false)}>
           <Field label="Nama kegiatan *">

@@ -13,6 +13,7 @@ npm run typecheck
 npm test
 npm run build
 npm run preview
+npm run test:e2e
 ```
 
 React + Vite + TypeScript, React Router, Tailwind CSS, Radix Dialog, React Hook Form + Zod, Dexie, Recharts, dan Lucide. Lockfile disertakan. Tidak membutuhkan backend, API key, atau layanan berbayar.
@@ -42,4 +43,4 @@ Aset screenshot SIM MINU dan Format Disposisi.pdf tidak tersedia dalam unggahan 
 
 ## Verifikasi
 
-`npm test` menguji alur dua penerima, pemeriksaan/perbaikan hasil, tembusan, progres “siap”, agenda unik, larangan arsip dini, hierarki delegasi, riwayat revisi/unit nonaktif, seed idempoten, serta persistensi metadata dan PDF setelah database dibuka ulang. Build dan typecheck wajib dijalankan. Pengujian visual/mobile, dialog cetak A4, dan deployment Vercel memerlukan pemeriksaan browser tersendiri; jangan menyamakan tes repository dengan pengujian visual tersebut.
+`npm test` menguji alur dua penerima, pemeriksaan/perbaikan hasil, tembusan, progres “siap”, agenda unik, larangan arsip dini, hierarki delegasi, riwayat revisi/unit nonaktif, seed idempoten, serta persistensi metadata dan PDF setelah database dibuka ulang. Build dan typecheck wajib dijalankan. Uji Playwright Chromium menjalankan alur utama melalui UI, memeriksa persistensi lampiran setelah reload dan URL detail langsung, navigasi 360 px, serta menghasilkan PDF cetak A4 (isi normal: satu halaman; catatan 180 baris: empat halaman dengan penanda akhir dan catatan kaki tetap tersedia). Gunakan `npx playwright install chromium` jika Chromium sistem tidak tersedia. Deployment Vercel dan kecocokan dengan PDF formulir resmi belum diverifikasi.

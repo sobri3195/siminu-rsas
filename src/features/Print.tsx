@@ -35,6 +35,9 @@ export function Print() {
       </div>
       {letter && (
         <article className="print-sheet">
+          <div className="continuation-id">
+            SIMINU RSAS · {letter.agenda} · {letter.number} · CONTOH/DEMO
+          </div>
           <div className="print-header">
             PUSAT KESEHATAN TNI ANGKATAN UDARA
             <br />

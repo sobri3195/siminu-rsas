@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { db } from "../storage/db";
 import { seed } from "../storage/seed";
+import { setDisplayTimezone, timestampLabel } from "../utils";
 import { AppContext } from "./context";
 import { Dashboard, Tasks } from "../features/Dashboard";
 import { Letters, NewLetter } from "../features/Letters";
@@ -57,6 +58,18 @@ const nav = [
   ["/pengaturan", "Pengaturan", SettingsIcon],
 ] as const;
 function App() {
+  const settings = useLiveQuery(() => db.settings.get("main"));
+  useEffect(() => {
+    if (settings?.timezone) {
+      try {
+        setDisplayTimezone(settings.timezone);
+      } catch {
+        setError(
+          "Zona waktu tersimpan tidak valid. Perbaiki melalui Pengaturan.",
+        );
+      }
+    }
+  }, [settings?.timezone]);
   const users = useLiveQuery(() => db.users.toArray()) || [];
   const [uid, setUid] = useState(localStorage.getItem("rsas-user") || "user-0");
   const [ready, setReady] = useState(false);
@@ -311,7 +324,7 @@ function App() {
                 </Link>
                 <small>
                   {n.read ? "Sudah dibaca" : "Baru"} ·{" "}
-                  {new Date(n.createdAt).toLocaleString("id-ID")}
+                  {timestampLabel(n.createdAt)}
                 </small>
               </div>
             ))}

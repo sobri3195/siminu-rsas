@@ -274,6 +274,7 @@ export function NewLetter() {
     watch,
     trigger,
     setValue,
+    reset,
     formState: { errors, isDirty },
   } = useForm<Values>({
     resolver: zodResolver(schema),
@@ -309,7 +310,15 @@ export function NewLetter() {
   }, [loadedLetters, values.agenda, setValue]);
   useEffect(() => {
     const subscription = watch((v) =>
-      localStorage.setItem("rsas-letter-draft", JSON.stringify(v)),
+      (() => {
+        try {
+          localStorage.setItem("rsas-letter-draft", JSON.stringify(v));
+        } catch {
+          setError(
+            "Draf otomatis gagal disimpan. Periksa kapasitas penyimpanan browser.",
+          );
+        }
+      })(),
     );
     return () => subscription.unsubscribe();
   }, [watch]);
@@ -320,8 +329,26 @@ export function NewLetter() {
         e.returnValue = "";
       }
     };
+    const guard = (event: MouseEvent) => {
+      const anchor = (event.target as HTMLElement).closest("a");
+      if (
+        isDirty &&
+        anchor &&
+        anchor.href !== window.location.href &&
+        !confirm(
+          "Tinggalkan formulir? Draf metadata tersimpan, tetapi berkas perlu dipilih ulang.",
+        )
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    document.addEventListener("click", guard, true);
     window.addEventListener("beforeunload", before);
-    return () => window.removeEventListener("beforeunload", before);
+    return () => {
+      window.removeEventListener("beforeunload", before);
+      document.removeEventListener("click", guard, true);
+    };
   }, [isDirty]);
   if (!canRegister(user.role))
     return <Empty text="Pilih peran petugas atau admin untuk registrasi." />;
@@ -359,19 +386,34 @@ export function NewLetter() {
             meninggalkan halaman.
           </p>
         </div>
-        <Link
-          to="/surat-masuk"
-          onClick={(e) => {
-            if (
-              isDirty &&
-              !confirm("Tinggalkan formulir? Draf metadata tetap tersimpan.")
-            )
-              e.preventDefault();
-          }}
-        >
-          Kembali ke daftar
-        </Link>
+        <Link to="/surat-masuk">Kembali ke daftar</Link>
       </div>
+      <button
+        className="danger"
+        type="button"
+        onClick={() => {
+          if (confirm("Hapus draf registrasi dan pilihan berkas?")) {
+            reset({
+              sender: "",
+              number: "",
+              date: today(),
+              received: today(),
+              agenda: "",
+              subject: "",
+              kind: "Surat dinas",
+              urgency: "Biasa",
+              classification: "Biasa",
+              summary: "",
+            });
+            localStorage.removeItem("rsas-letter-draft");
+            setFiles([]);
+            setStep(1);
+            setError("");
+          }
+        }}
+      >
+        Hapus draf registrasi
+      </button>
       <div className="steps">
         {["Identitas surat", "Dokumen & lampiran", "Pemeriksaan"].map(
           (s, i) => (

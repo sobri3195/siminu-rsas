@@ -1,8 +1,19 @@
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
+let displayTimezone = "Asia/Jakarta";
+export function setDisplayTimezone(zone: string) {
+  new Intl.DateTimeFormat("id-ID", { timeZone: zone });
+  displayTimezone = zone;
+}
+export const timestampLabel = (value: string) =>
+  new Intl.DateTimeFormat("id-ID", {
+    timeZone: displayTimezone,
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 export const today = () =>
   new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jakarta",
+    timeZone: displayTimezone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

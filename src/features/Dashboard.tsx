@@ -75,6 +75,12 @@ export function Dashboard() {
       hint: "Memerlukan perhatian segera",
     },
   ];
+  const periodStart = today().slice(0, 7) + "-01";
+  const periodTasks = mine.filter(
+    (t) =>
+      t.createdAt.slice(0, 10) >= periodStart &&
+      t.createdAt.slice(0, 10) <= today(),
+  );
   const chart = Array.from({ length: 6 }, (_, i) => {
     const d = new Date();
     d.setMonth(d.getMonth() - 5 + i);
@@ -129,6 +135,44 @@ export function Dashboard() {
             <small>{s.hint}</small>
           </Link>
         ))}
+      </div>
+      <div className="period-summary">
+        <Link to={`/surat-masuk?from=${periodStart}&to=${today()}`}>
+          <Mail size={19} />
+          <div>
+            <strong>
+              {
+                letters.filter(
+                  (l) => l.received >= periodStart && l.received <= today(),
+                ).length
+              }{" "}
+              surat masuk bulan ini
+            </strong>
+            <small>Dokumen unik dalam periode berjalan</small>
+          </div>
+          <ArrowRight size={17} />
+        </Link>
+        <Link to={`/tugas?filter=semua&from=${periodStart}&to=${today()}`}>
+          <CheckCheck size={19} />
+          <div>
+            <strong>
+              {periodTasks.length
+                ? Math.round(
+                    (periodTasks.filter((t) => t.status === "Selesai").length /
+                      periodTasks.length) *
+                      100,
+                  )
+                : 0}
+              % penyelesaian periode berjalan
+            </strong>
+            <small>
+              Tugas wajib yang dibuat bulan ini ·{" "}
+              {periodTasks.filter((t) => t.status === "Selesai").length} /{" "}
+              {periodTasks.length} selesai
+            </small>
+          </div>
+          <ArrowRight size={17} />
+        </Link>
       </div>
       <div className="dashboard-grid">
         <section className="panel">
@@ -323,6 +367,8 @@ export function Tasks() {
   const filtered = tasks
     .filter(
       (t) =>
+        (!p.get("from") || t.createdAt.slice(0, 10) >= p.get("from")!) &&
+        (!p.get("to") || t.createdAt.slice(0, 10) <= p.get("to")!) &&
         !ds.find((d) => d.id === t.dispositionId)?.cancelled &&
         (user.role === "Admin Sistem" ||
           user.role === "Kepala RSAU" ||
@@ -386,11 +432,39 @@ export function Tasks() {
         </select>
         <span>{filtered.length} tugas</span>
       </div>
-      <div className={view.get("view") === "kanban" ? "kanban" : "task-grid"}>
-        {filtered.map((t) => (
-          <TaskCard key={t.id} task={t} />
-        ))}
-      </div>
+      {view.get("view") === "kanban" ? (
+        <div className="kanban">
+          {[
+            "Belum dibaca",
+            "Dibaca",
+            "Diterima",
+            "Diproses",
+            "Hasil dikirim",
+            "Perlu perbaikan",
+            "Selesai",
+          ].map((status) => (
+            <section className="kanban-column" key={status}>
+              <h2>
+                {status}{" "}
+                <Badge>
+                  {filtered.filter((t) => t.status === status).length}
+                </Badge>
+              </h2>
+              {filtered
+                .filter((t) => t.status === status)
+                .map((t) => (
+                  <TaskCard key={t.id} task={t} />
+                ))}
+            </section>
+          ))}
+        </div>
+      ) : (
+        <div className="task-grid">
+          {filtered.map((t) => (
+            <TaskCard key={t.id} task={t} />
+          ))}
+        </div>
+      )}
       {!filtered.length && <Empty />}
     </>
   );

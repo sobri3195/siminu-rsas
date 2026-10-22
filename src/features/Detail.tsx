@@ -22,7 +22,15 @@ import {
   cancelDisposition,
 } from "../repositories/workflow";
 import { Badge, Empty, Field, Modal } from "../components/common";
-import { dateLabel, download, id, instructions, now, today } from "../utils";
+import {
+  timestampLabel,
+  dateLabel,
+  download,
+  id,
+  instructions,
+  now,
+  today,
+} from "../utils";
 import type {
   Attachment,
   Disposition,
@@ -290,7 +298,7 @@ export function Detail() {
               {comments.map((c) => (
                 <div className="mini-card" key={c.id}>
                   <strong>{c.author}</strong>
-                  <small>{new Date(c.createdAt).toLocaleString("id-ID")}</small>
+                  <small>{timestampLabel(c.createdAt)}</small>
                   <p>{c.text}</p>
                 </div>
               ))}
@@ -336,7 +344,7 @@ export function Detail() {
                 <div className="timeline" key={l.id}>
                   <strong>{l.text}</strong>
                   <small>
-                    {l.author} · {new Date(l.createdAt).toLocaleString("id-ID")}
+                    {l.author} · {timestampLabel(l.createdAt)}
                   </small>
                 </div>
               ))}
@@ -423,15 +431,21 @@ export function DispositionForm({
         revisionOf: previous?.id,
         reason,
       };
-      await issue(d, user.name);
-      if (selected.includes("Agendakan") && eventConfirmed && eventTitle.trim())
-        await db.events.add({
-          id: id(),
-          title: eventTitle,
-          date: deadline,
-          location: "Belum ditentukan",
-          letterId,
-        });
+      await db.transaction("rw", db.tables, async () => {
+        await issue(d, user.name);
+        if (
+          selected.includes("Agendakan") &&
+          eventConfirmed &&
+          eventTitle.trim()
+        )
+          await db.events.add({
+            id: id(),
+            title: eventTitle,
+            date: deadline,
+            location: "Belum ditentukan",
+            letterId,
+          });
+      });
       await run(async () => {}, "Disposisi diterbitkan dan tugas dibuat.");
       onClose();
     } catch (e) {
