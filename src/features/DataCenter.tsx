@@ -173,9 +173,9 @@ export function DataCenter() {
         <section className="panel">
           <h2>Pulihkan cadangan</h2>
           <p>
-            Validasi format, skema v4 (kompatibel paket v2/v3), jumlah/ukuran,
-            referensi dan SHA-256 dilakukan sebelum database diubah. Batas paket
-            150 MB, 30 MB per berkas.
+            Validasi format, skema v5 (kompatibel paket v2/v3/v4),
+            jumlah/ukuran, referensi dan SHA-256 dilakukan sebelum database
+            diubah. Batas paket 150 MB, 30 MB per berkas.
           </p>
           {user.role === "Admin Sistem" ? (
             <Field label="Pilih cadangan lengkap ZIP">

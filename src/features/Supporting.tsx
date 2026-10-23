@@ -668,7 +668,8 @@ export function Reports() {
   const active = tasks.filter(
     (t) =>
       !ds.find((d) => d.id === t.dispositionId)?.cancelled &&
-      t.status !== "Dibatalkan",
+      t.status !== "Dibatalkan" &&
+      !t.retired,
   );
   const rows: Record<string, string>[] =
     kind === "Surat masuk"

@@ -20,6 +20,8 @@ export interface Unit {
   userId?: string;
 }
 export interface Position {
+  assignmentStart?: string;
+  assignmentEnd?: string;
   active?: boolean;
   id: string;
   name: string;
@@ -88,6 +90,12 @@ export interface Attachment {
   blob: Blob;
 }
 export interface DispositionRecipient {
+  id?: string;
+  userName?: string;
+  positionId?: string;
+  positionName?: string;
+  assignmentStart?: string;
+  assignmentEnd?: string;
   unitId: string;
   unitName: string;
   userId: string;
@@ -96,6 +104,16 @@ export interface DispositionRecipient {
   deadline: string;
 }
 export interface Disposition {
+  digital?: boolean;
+  issuerId?: string;
+  issuerPosition?: string;
+  issuedAt?: string;
+  mode?: "Penugasan" | "Untuk diketahui";
+  version?: number;
+  revision?: number;
+  reviewerId?: string;
+  reportRequired?: boolean;
+  updatedAt?: string;
   id: string;
   letterId: string;
   giver: string;
@@ -111,6 +129,7 @@ export interface Disposition {
   cancelled?: boolean;
 }
 export type TaskStatus =
+  | "Belum diterima"
   | "Belum dibaca"
   | "Dibaca"
   | "Diterima"
@@ -120,6 +139,21 @@ export type TaskStatus =
   | "Selesai"
   | "Dibatalkan";
 export interface Task {
+  retired?: boolean;
+  digital?: boolean;
+  revision?: number;
+  recipientId?: string;
+  userName?: string;
+  positionName?: string;
+  readAt?: string;
+  issuerId?: string;
+  reviewerId?: string;
+  reportRequired?: boolean;
+  reconfirmRequired?: boolean;
+  delegateReason?: string;
+  delegatedBy?: string;
+  consolidateChildren?: boolean;
+  completionNote?: string;
   minutesId?: string;
   decisionId?: string;
   agendaId?: string;
@@ -161,6 +195,8 @@ export interface CompletionReport {
   createdAt: string;
 }
 export interface Comment {
+  taskId?: string;
+  dispositionId?: string;
   id: string;
   letterId: string;
   text: string;
@@ -168,6 +204,8 @@ export interface Comment {
   createdAt: string;
 }
 export interface AgendaEvent {
+  dispositionId?: string;
+  taskId?: string;
   organizer?: string;
   invitedUserId?: string;
   participants?: string[];
@@ -193,6 +231,9 @@ export interface Notification {
   createdAt: string;
 }
 export interface ActivityLog {
+  userId?: string;
+  dispositionVersion?: number;
+  dispositionId?: string;
   taskId?: string;
   minutesId?: string;
   event?: string;
@@ -236,3 +277,5 @@ export interface CatalogItem {
 }
 export * from "./stage3";
 export * from "./nota";
+
+export * from "./disposition";

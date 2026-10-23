@@ -101,6 +101,22 @@ export function AdvancedMaster() {
               onChange={(e) => write("name", e.target.value)}
             />
           </Field>
+          {section === "positions" && (
+            <div className="form-grid">
+              {[
+                ["assignmentStart", "Mulai masa penugasan"],
+                ["assignmentEnd", "Akhir masa penugasan"],
+              ].map(([k, label]) => (
+                <Field key={k} label={label}>
+                  <input
+                    type="date"
+                    value={String(draft[k] || "")}
+                    onChange={(e) => write(k, e.target.value)}
+                  />
+                </Field>
+              ))}
+            </div>
+          )}
           {section === "catalogs" ? (
             <>
               <Field label="Kategori">

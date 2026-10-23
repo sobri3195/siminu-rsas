@@ -35,7 +35,8 @@ export function Dashboard() {
   const tasks = all.filter(
     (t) =>
       !ds.find((d) => d.id === t.dispositionId)?.cancelled &&
-      t.status !== "Dibatalkan",
+      t.status !== "Dibatalkan" &&
+      !t.retired,
   );
   const outgoingQuery = useLiveQuery(() => db.outgoing.toArray());
   const outgoing = outgoingQuery || [];
@@ -122,6 +123,9 @@ export function Dashboard() {
             Selamat datang, {user.name.split(" ")[0]}{" "}
             <span className="wave">✦</span>
           </h1>
+          <Link className="button" to="/laporan-disposisi">
+            Pantau penerimaan, hasil, dan keterlambatan disposisi
+          </Link>
           <p className="muted">
             Berikut ringkasan surat dan pekerjaan yang perlu perhatian Anda.
           </p>

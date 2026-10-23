@@ -41,6 +41,11 @@ import { LeadershipAgenda } from "../features/LeadershipAgenda";
 import { Minutes } from "../features/Minutes";
 import { Cases } from "../features/Cases";
 import { Drafting, DraftEditor } from "../features/Drafting";
+import { DispositionCenter } from "../features/DispositionCenter";
+import { DigitalDispositionEditor } from "../features/DigitalDispositionEditor";
+import { DigitalDispositionDetail } from "../features/DigitalDispositionDetail";
+import { DigitalDispositionPrint } from "../features/DigitalDispositionPrint";
+import { DigitalDispositionReports } from "../features/DigitalDispositionReports";
 import { NotaDinas } from "../features/NotaDinas";
 import { NoteEditor } from "../features/NoteEditor";
 import { ensureNota } from "../repositories/nota";
@@ -61,7 +66,7 @@ import "../styles/app.css";
 const nav = [
   ["/", "Beranda", LayoutDashboard],
   ["/surat-masuk", "Surat Masuk", Mail],
-  ["/disposisi", "Disposisi", GitBranch],
+  ["/disposisi", "Disposisi Digital", GitBranch],
   ["/tugas", "Tugas Saya", ClipboardCheck],
   ["/nota-dinas", "Nota Dinas", Mail],
   ["/naskah", "Pembuat Naskah", Mail],
@@ -179,7 +184,7 @@ function App() {
         )}
       </main>
     );
-  const print = /^\/cetak(?:-detail)?\//.test(location.pathname);
+  const print = /^\/cetak/.test(location.pathname);
   return (
     <AppContext.Provider value={{ user, run }}>
       <div
@@ -320,7 +325,27 @@ function App() {
               <Route path="/surat-masuk" element={<Letters />} />
               <Route path="/surat-masuk/baru" element={<NewLetter />} />
               <Route path="/surat-masuk/:id" element={<Detail />} />
-              <Route path="/disposisi" element={<Letters dispositions />} />
+              <Route path="/disposisi" element={<DispositionCenter />} />
+              <Route
+                path="/disposisi/draf/:id"
+                element={<DigitalDispositionEditor />}
+              />
+              <Route
+                path="/disposisi/:id"
+                element={<DigitalDispositionDetail />}
+              />
+              <Route
+                path="/cetak-disposisi/draf/:id"
+                element={<DigitalDispositionPrint isDraft />}
+              />
+              <Route
+                path="/cetak-disposisi/:id"
+                element={<DigitalDispositionPrint />}
+              />
+              <Route
+                path="/laporan-disposisi"
+                element={<DigitalDispositionReports />}
+              />
               <Route path="/tugas" element={<Tasks />} />
               <Route path="/nota-dinas" element={<NotaDinas />} />
               <Route path="/nota-dinas/:id" element={<NoteEditor />} />
@@ -357,7 +382,7 @@ function App() {
               <span>
                 SIMINU RSAS · Administrasi tertib, pelayanan lebih baik.
               </span>
-              <span>Frontend demo · v4.0</span>
+              <span>Frontend demo · v5.0</span>
             </footer>
           </main>
         </div>

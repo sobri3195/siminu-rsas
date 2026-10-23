@@ -98,21 +98,28 @@ export async function aggregate(letterId: string) {
       .map((d) => d.id),
   );
   const tasks = allTasks.filter(
-    (t) => active.has(t.dispositionId) && t.status !== "Dibatalkan",
+    (t) =>
+      active.has(t.dispositionId) && t.status !== "Dibatalkan" && !t.retired,
   );
   const letter = await db.letters.get(letterId);
-  if (letter && letter.status !== "Diarsipkan" && tasks.length)
+  if (letter && letter.status !== "Diarsipkan") {
     await db.letters.update(letterId, {
-      status: tasks.every((t) => t.status === "Selesai")
-        ? "Selesai"
-        : "Dalam tindak lanjut",
+      status: tasks.length
+        ? tasks.every((t) => t.status === "Selesai")
+          ? "Selesai"
+          : "Dalam tindak lanjut"
+        : active.size
+          ? "Selesai"
+          : "Menunggu disposisi",
     });
+  }
 }
 export async function issue(d: Disposition, author: string) {
   await db.transaction(
     "rw",
     [db.dispositions, db.tasks, db.letters, db.activities, db.notifications],
     async () => {
+      if (d.digital) throw Error("Gunakan penerbitan Disposisi Digital.");
       if (await db.dispositions.get(d.id))
         throw Error("Disposisi ini sudah diterbitkan.");
       const letter = await db.letters.get(d.letterId);
@@ -145,6 +152,10 @@ export async function issue(d: Disposition, author: string) {
       if (d.revisionOf) {
         if (!d.reason?.trim()) throw Error("Alasan revisi wajib diisi.");
         const old = await db.dispositions.get(d.revisionOf);
+        if (old?.digital)
+          throw Error(
+            "Revisi melalui Disposisi Digital agar versi dan tugas tetap terjaga.",
+          );
         if (!old || old.cancelled || old.letterId !== d.letterId)
           throw Error("Disposisi lama tidak aktif.");
         await db.dispositions.update(old.id, {
@@ -209,6 +220,8 @@ export async function taskAction(
     async () => {
       const task = await db.tasks.get(taskId);
       if (!task) throw Error("Tugas tidak ditemukan.");
+      if (task.digital)
+        throw Error("Gunakan tindakan Disposisi Digital untuk tugas ini.");
       const disposition = await db.dispositions.get(task.dispositionId);
       if (disposition?.cancelled)
         throw Error(
@@ -342,7 +355,9 @@ export async function delegate(task: Task, unitId: string, author: string) {
   });
 }
 export const overdue = (t: Task) =>
-  t.deadline < today() && !["Selesai", "Dibatalkan"].includes(t.status);
+  !!t.deadline &&
+  t.deadline < today() &&
+  !["Selesai", "Dibatalkan"].includes(t.status);
 export async function cancelDisposition(
   dispositionId: string,
   reason: string,
@@ -354,6 +369,7 @@ export async function cancelDisposition(
     [db.dispositions, db.tasks, db.letters, db.activities],
     async () => {
       const d = await db.dispositions.get(dispositionId);
+      if (d?.digital) throw Error("Pembatalan melalui Disposisi Digital.");
       if (!d || d.cancelled) throw Error("Disposisi tidak aktif.");
       await db.tasks.where({ dispositionId }).modify((t) => {
         t.previousStatus = t.status;

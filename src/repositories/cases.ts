@@ -2,23 +2,25 @@ import { db } from "../storage/db";
 import type { LinkKind } from "../types";
 import { now } from "../utils";
 export const sourceRoute = (kind: LinkKind, row: Record<string, unknown>) =>
-  kind === "notes"
-    ? "/nota-dinas/" + row.id
-    : kind === "letters"
-      ? "/surat-masuk/" + row.id
-      : kind === "drafts"
-        ? "/naskah/" + row.id
-        : kind === "minutes"
-          ? "/notulen/" + row.id
-          : kind === "events"
-            ? "/agenda"
-            : kind === "outgoing"
-              ? "/surat-keluar"
-              : row.minutesId
-                ? "/notulen/" + row.minutesId
-                : row.letterId
-                  ? "/surat-masuk/" + row.letterId
-                  : "/tugas";
+  kind === "dispositions" && row.digital
+    ? "/disposisi/" + row.id
+    : kind === "notes"
+      ? "/nota-dinas/" + row.id
+      : kind === "letters"
+        ? "/surat-masuk/" + row.id
+        : kind === "drafts"
+          ? "/naskah/" + row.id
+          : kind === "minutes"
+            ? "/notulen/" + row.id
+            : kind === "events"
+              ? "/agenda"
+              : kind === "outgoing"
+                ? "/surat-keluar"
+                : row.minutesId
+                  ? "/notulen/" + row.minutesId
+                  : row.letterId
+                    ? "/surat-masuk/" + row.letterId
+                    : "/tugas";
 export async function linkToCase(
   caseId: string,
   links: { kind: LinkKind; id: string }[],

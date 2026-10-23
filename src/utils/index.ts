@@ -50,4 +50,5 @@ export const instructions = [
   "Koordinasikan",
   "Laporkan",
   "Monitor",
+  "Diskusikan",
 ];

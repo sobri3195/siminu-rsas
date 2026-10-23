@@ -121,7 +121,7 @@ export function Detail() {
   const [cancel, setCancel] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const activeTasks = tasks.filter(
-    (t) => !ds.find((d) => d.id === t.dispositionId)?.cancelled,
+    (t) => !ds.find((d) => d.id === t.dispositionId)?.cancelled && !t.retired,
   );
   useEffect(() => {
     void run(async () => {
@@ -129,6 +129,7 @@ export function Detail() {
         .where({ letterId: lid, userId: user.id })
         .toArray())
         if (
+          !task.digital &&
           task.status === "Belum dibaca" &&
           !(await db.dispositions.get(task.dispositionId))?.cancelled
         )
@@ -151,6 +152,9 @@ export function Detail() {
         </Link>
       </div>
       <div className="toolbar">
+        <Link className="button" to={"/disposisi?surat=" + lid}>
+          Buka Disposisi Digital surat ini
+        </Link>
         <Link className="button" to={"/nota-dinas?surat=" + lid}>
           Buat nota dinas dari surat
         </Link>
@@ -328,7 +332,12 @@ export function Detail() {
                     </p>
                   ))}
                   {d.reason && <p>Alasan: {d.reason}</p>}
-                  {canIssue(user.role) && !d.cancelled && (
+                  {d.digital && (
+                    <Link className="button" to={"/disposisi/" + d.id}>
+                      Buka arahan digital, versi dan hasil
+                    </Link>
+                  )}
+                  {canIssue(user.role) && !d.cancelled && !d.digital && (
                     <div className="row">
                       <button onClick={() => setDisposition(d)}>
                         Revisi dengan alasan
@@ -813,6 +822,25 @@ export function DispositionForm({
   );
 }
 export function TaskCard({ task: t }: { task: Task }) {
+  return t.digital ? (
+    <section className="mini-card">
+      <strong>{t.instruction}</strong>
+      <p>
+        {t.unitName} · {t.userName} · {t.readAt ? "Dibaca" : "Belum dibaca"} ·{" "}
+        {t.status}
+      </p>
+      <Link
+        className="button"
+        to={"/disposisi/" + t.dispositionId + "?task=" + t.id}
+      >
+        Buka tugas Disposisi Digital
+      </Link>
+    </section>
+  ) : (
+    <LegacyTaskCard task={t} />
+  );
+}
+function LegacyTaskCard({ task: t }: { task: Task }) {
   const { user, run } = useApp();
   const [action, setAction] = useState("");
   const [text, setText] = useState("");
