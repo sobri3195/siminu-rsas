@@ -3,6 +3,7 @@ import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 import { z } from "zod";
 import { db, type AppDatabase } from "../storage/db";
 import { backupSchema, schemas } from "./backup";
+import { stage3Schemas } from "./stage3Schemas";
 import { id, now } from "../utils";
 const MAX_TOTAL = 150 * 1024 * 1024,
   MAX_FILE = 30 * 1024 * 1024,
@@ -18,7 +19,7 @@ const fileSchema = z.object({
 });
 const manifestSchema = z.object({
   format: z.literal("siminu-rsas-backup"),
-  schemaVersion: z.literal(2),
+  schemaVersion: z.union([z.literal(2), z.literal(3)]),
   appVersion: z.string(),
   createdAt: z.iso.datetime(),
   counts: z.record(z.string(), z.number().int().nonnegative()),
@@ -87,8 +88,8 @@ export async function createFullBackup(database: AppDatabase = db) {
   }
   const manifest: PackageManifest = {
     format: "siminu-rsas-backup",
-    schemaVersion: 2,
-    appVersion: "2.0.0",
+    schemaVersion: 3,
+    appVersion: "3.0.0",
     createdAt: now(),
     counts: Object.fromEntries(
       Object.entries(snapshot.tables).map(([k, v]) => [k, v.length]),
@@ -177,19 +178,30 @@ export function validateReferences(
     if (new Set(rows.map((r) => r.id)).size !== rows.length)
       throw Error(`ID ganda: ${name}`);
   for (const l of tables.letters)
+    ref("units", l.targetUnitId as string | undefined);
+  for (const l of tables.letters)
     for (const aid of l.attachmentIds)
       if (!files.has(aid) || owners.get(aid) !== l.id)
         throw Error(`Lampiran surat hilang atau pemilik tidak cocok: ${aid}`);
   for (const l of tables.outgoing) {
     ref("letters", l.incomingId as string | undefined);
+    ref("drafts", l.draftId as string | undefined);
     for (const aid of (l.attachmentIds as string[] | undefined) || [])
-      if (!files.has(aid) || owners.get(aid) !== l.id)
+      if (
+        !files.has(aid) ||
+        (owners.get(aid) !== l.id && owners.get(aid) !== l.draftId)
+      )
         throw Error(
           `Lampiran surat keluar hilang atau pemilik tidak cocok: ${aid}`,
         );
   }
   for (const a of attachments)
-    if (!sets.letters.has(a.letterId) && !sets.outgoing.has(a.letterId))
+    if (
+      !sets.letters.has(a.letterId) &&
+      !sets.outgoing.has(a.letterId) &&
+      !sets.minutes.has(a.letterId) &&
+      !sets.drafts.has(a.letterId)
+    )
       throw Error("Pemilik lampiran tidak ditemukan.");
   for (const d of tables.dispositions) {
     ref("letters", d.letterId);
@@ -202,6 +214,8 @@ export function validateReferences(
   }
   for (const t of tables.tasks) {
     ref("letters", t.letterId);
+    ref("minutes", t.minutesId as string | undefined);
+    ref("events", t.agendaId as string | undefined);
     ref("dispositions", t.dispositionId);
     ref("units", t.unitId);
     ref("users", t.userId);
@@ -212,16 +226,68 @@ export function validateReferences(
     for (const aid of r.attachmentIds)
       if (!files.has(aid)) throw Error("Bukti hasil hilang.");
   }
+  for (const d of tables.drafts) {
+    ref("templates", d.templateId);
+    ref("users", d.authorId);
+    ref("units", d.unitId);
+    ref("outgoing", d.outgoingId as string | undefined);
+    for (const uid of d.reviewerIds) ref("users", uid);
+    for (const aid of d.attachmentIds)
+      if (!files.has(aid)) throw Error("Lampiran naskah hilang.");
+  }
+  const versionKeys = tables.draftVersions.map(
+    (v) => `${v.draftId}:${v.version}`,
+  );
+  if (new Set(versionKeys).size !== versionKeys.length)
+    throw Error("Versi naskah ganda.");
+  for (const draft of tables.drafts)
+    if (
+      !tables.draftVersions.some(
+        (v) => v.draftId === draft.id && v.version === draft.version,
+      )
+    )
+      throw Error("Snapshot versi naskah terkini tidak ditemukan.");
+  for (const v of tables.draftVersions) {
+    ref("drafts", v.draftId);
+    ref("users", v.authorId);
+  }
+  for (const v of tables.draftDecisions) {
+    ref("drafts", v.draftId);
+    ref("users", v.userId);
+  }
+  for (const m of tables.minutes) {
+    ref("events", m.agendaId as string | undefined);
+    ref("letters", m.letterId as string | undefined);
+    for (const d of m.decisions) {
+      ref("users", d.userId);
+      ref("units", d.unitId);
+      ref("tasks", d.taskId);
+    }
+    for (const aid of m.attachmentIds)
+      if (!files.has(aid) || owners.get(aid) !== m.id)
+        throw Error("Lampiran notulen hilang.");
+  }
+  for (const c of tables.caseFiles) for (const l of c.links) ref(l.kind, l.id);
+  for (const page of tables.searchPages)
+    if (!files.has(page.attachmentId))
+      throw Error("Sumber indeks PDF tidak ditemukan.");
   for (const p of tables.progress) ref("tasks", p.taskId);
   for (const row of [
     ...tables.activities,
     ...tables.comments,
     ...tables.notifications,
-  ])
+  ]) {
     ref("letters", row.letterId);
+    ref("minutes", row.minutesId as string | undefined);
+    ref("tasks", row.taskId as string | undefined);
+  }
   for (const e of tables.events) {
     ref("letters", e.letterId as string | undefined);
     ref("users", e.userId as string | undefined);
+    ref("users", e.invitedUserId as string | undefined);
+    ref("users", e.representativeId as string | undefined);
+    for (const uid of (e.participants as string[] | undefined) || [])
+      ref("users", uid);
   }
   for (const u of tables.units) {
     ref("units", u.parentId);
@@ -261,11 +327,17 @@ export async function validateFullBackup(
     (await checksum(entries["metadata.json"])) !== manifest.metadata.sha256
   )
     throw Error("Checksum metadata tidak cocok.");
-  const tables = backupSchema.parse(
-    JSON.parse(strFromU8(entries["metadata.json"])),
-  ).tables;
+  const raw = JSON.parse(strFromU8(entries["metadata.json"]));
+  if (manifest.schemaVersion === 2)
+    for (const name of Object.keys(stage3Schemas)) raw.tables[name] ??= [];
+  const tables = backupSchema.parse(raw).tables;
   for (const name of metadataTables)
-    if (manifest.counts[name] !== tables[name].length)
+    if (
+      (manifest.counts[name] ??
+        (manifest.schemaVersion === 2 && name in stage3Schemas
+          ? 0
+          : undefined)) !== tables[name].length
+    )
       throw Error(`Jumlah ${name} tidak cocok dengan manifest.`);
   if (
     new Set(manifest.files.map((f) => f.id)).size !== manifest.files.length ||

@@ -27,6 +27,9 @@ export interface Position {
   userId?: string;
 }
 export interface IncomingLetter {
+  targetUnitId?: string;
+  labels?: string[];
+  receivedAt?: string;
   revision?: number;
   updatedAt?: string;
   register?: string;
@@ -55,6 +58,10 @@ export interface IncomingLetter {
   createdAt: string;
 }
 export interface OutgoingLetter {
+  agenda?: string;
+  documentDate?: string;
+  draftId?: string;
+  draftVersion?: number;
   kind?: string;
   classification?: string;
   unitId?: string;
@@ -111,6 +118,14 @@ export type TaskStatus =
   | "Selesai"
   | "Dibatalkan";
 export interface Task {
+  minutesId?: string;
+  decisionId?: string;
+  agendaId?: string;
+  acceptedAt?: string;
+  startedAt?: string;
+  submittedAt?: string;
+  reviewedAt?: string;
+  completedAt?: string;
   previousStatus?: TaskStatus;
   id: string;
   letterId: string;
@@ -151,6 +166,13 @@ export interface Comment {
   createdAt: string;
 }
 export interface AgendaEvent {
+  organizer?: string;
+  invitedUserId?: string;
+  participants?: string[];
+  unitId?: string;
+  representativeId?: string;
+  attendance?: "Belum ditentukan" | "Hadir" | "Diwakilkan" | "Tidak hadir";
+  outcome?: string;
   userId?: string;
   start?: string;
   end?: string;
@@ -161,6 +183,7 @@ export interface AgendaEvent {
   letterId?: string;
 }
 export interface Notification {
+  minutesId?: string;
   id: string;
   text: string;
   letterId: string;
@@ -168,6 +191,9 @@ export interface Notification {
   createdAt: string;
 }
 export interface ActivityLog {
+  taskId?: string;
+  minutesId?: string;
+  event?: string;
   before?: unknown;
   after?: unknown;
   id: string;
@@ -206,3 +232,4 @@ export interface CatalogItem {
   active: boolean;
   order: number;
 }
+export * from "./stage3";

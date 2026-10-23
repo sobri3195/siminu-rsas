@@ -19,6 +19,13 @@ export type AppDatabase = Dexie & {
   sequences: EntityTable<T.Sequence, "id">;
   recovery: EntityTable<T.RecoverySnapshot, "id">;
   catalogs: EntityTable<T.CatalogItem, "id">;
+  drafts: EntityTable<T.OfficialDraft, "id">;
+  draftVersions: EntityTable<T.DraftVersion, "id">;
+  draftDecisions: EntityTable<T.DraftDecision, "id">;
+  templates: EntityTable<T.DraftTemplate, "id">;
+  minutes: EntityTable<T.MeetingMinutes, "id">;
+  caseFiles: EntityTable<T.CaseFile, "id">;
+  searchPages: EntityTable<T.SearchPage, "id">;
 };
 export const dataMode =
   typeof localStorage !== "undefined" &&
@@ -77,6 +84,16 @@ export function createDatabase(name: string): AppDatabase {
             }
           });
     });
+  db.version(3).stores({
+    drafts: "id,stage,unitId",
+    draftVersions: "id,draftId,[draftId+version]",
+    draftDecisions: "id,draftId",
+    templates: "id",
+    minutes: "id,agendaId",
+    caseFiles: "id",
+    searchPages: "id,attachmentId",
+    tasks: "id,letterId,dispositionId,unitId,userId,status,minutesId",
+  });
   db.on("blocked", () => {
     if (typeof window !== "undefined")
       window.dispatchEvent(new CustomEvent("rsas-db-upgrade"));

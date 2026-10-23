@@ -1,18 +1,21 @@
 ## Perubahan
 
-Aplikasi sebelumnya membutuhkan koneksi untuk memuat aset dan hanya menyediakan cadangan metadata. PR ini menambahkan PWA dengan cache app shell, deep link offline, indikator kesiapan cache, dan pembaruan service worker yang ditahan saat formulir belum disimpan.
+Aplikasi sebelumnya berfokus pada registrasi, disposisi dan tindak lanjut surat. PR ini menambahkan penyusunan lima jenis naskah terstruktur dengan autosave, pratinjau A4, DOCX berbasis teks, versi immutable dan pemeriksaan berjenjang. Keputusan terikat pada versi; perubahan isi meminta pemeriksaan ulang sambil mempertahankan riwayat dan korespondensi yang sudah bernomor. Template awal secara eksplisit generik karena format resmi belum tersedia.
 
-Pusat Data Lokal mengekspor ZIP berisi metadata, manifest dan lampiran asli dengan SHA-256. Pemulihan memvalidasi skema/ukuran/jumlah/referensi/checksum, menyediakan pilihan konflik per ID, dan membuat cadangan otomatis sebelum penggantian dalam transaksi. Perubahan setelah pratinjau meminta peninjauan ulang.
+Agenda yang ada diperluas dengan undangan pimpinan/unit, peringatan benturan, perwakilan/kehadiran, hasil kegiatan dan ICS. Notulen menghasilkan tugas berdasarkan ID keputusan setelah konfirmasi, sehingga klik berulang tidak menggandakan tugas. Berkas kegiatan menautkan dokumen sumber dan menampilkan kronologi serta pekerjaan terbuka tanpa menyalin/menghapus sumber.
 
-Database pengguna lama dipertahankan melalui migrasi Dexie v2; data contoh memakai database terpisah. Ditambahkan koreksi metadata beralasan dengan revisi antar-tab, nomor agenda transaksional, status tugas Dibatalkan beserta riwayat sebelumnya, pengingat ketika aplikasi aktif, agenda dengan waktu/PIC/surat terkait, lampiran dan pengiriman surat keluar, arsip terpadu/favorit, master tambahan, bantuan dan checklist uji terpandu. Tema dan alur utama dipertahankan.
+Pencarian isi memanfaatkan data lokal dan PDF.js worker yang ikut cache offline. CSV/XLSX memiliki pemetaan, pratinjau, validasi dan hasil per baris tanpa menimpa data lama. Pilihan banyak surat mendukung label, bundel, CSV/cetak dan arsip bersyarat dengan hasil per item. Laporan waktu memakai median/n/kelengkapan timestamp dan tidak menganggap nilai yang hilang sebagai nol. Bantuan menambahkan panduan yang dapat dilewati/dibuka ulang.
+
+Migrasi Dexie v3 mempertahankan data lama. ZIP skema 3 mencakup entitas baru, versi, notulen dan lampiran; paket skema 2 tetap kompatibel. Contoh DOCX dan panduan uji disertakan.
 
 ## Validasi
 
 - TypeScript dan build produksi lolos.
-- 15 tes repository: alur tugas, migrasi/Blob, agenda bersamaan, koreksi usang, ZIP/checksum/referensi/konflik, pemulihan/cadangan otomatis, CSV formula.
-- 9 skenario Chromium pada build produksi: alur surat sampai arsip, koneksi browser dimatikan, deep link/data/lampiran/disposisi/progres/cetak/ZIP offline, restart profil browser, dua tab, quota, pemulihan ZIP melalui UI, pembaruan service worker yang menjaga draf, isolasi reset contoh, desktop/tablet/360 px dan keyboard.
-- Cetak A4 menghasilkan dokumen normal satu halaman serta catatan panjang dengan penanda akhir tetap tersedia.
+- 22 tes repository mencakup workflow lama, DOCX teks, versi/persetujuan, ICS/zona waktu, idempotensi keputusan, tautan berkas, CSV/impor, bulk parsial, median, cadangan baru/kompatibilitas v2, dan migrasi Blob v2→v3.
+- 13 skenario Chromium pada build produksi mencakup sembilan regresi sebelumnya dan empat alur baru. Naskah/DOCX, agenda/ICS/notulen/bundel, PDF.js worker, XLSX/bulk/analisis diuji dengan koneksi browser dimatikan.
+- PDF tanpa lapisan teks diberi keterangan yang benar; pengujian PDF mencatat bahwa tidak ada permintaan ke domain eksternal.
+- Dua contoh DOCX dirender dengan LibreOffice menjadi PDF A4 satu halaman; teks dan tampilannya diperiksa.
 
 ## Batasan
 
-Belum diuji pada Safari/iOS, Firefox, pemasangan PWA oleh pengguna, printer fisik, atau deployment HTTPS versi baru. Akses deployment referensi ditolak proxy lingkungan. Tidak ada backend, autentikasi produksi, sinkronisasi, pengiriman korespondensi, notifikasi saat browser tertutup, atau tanda tangan elektronik tersertifikasi. Batas ZIP: 150 MB per paket, 30 MB per berkas, maksimal 2.500 lampiran. Format cetak tetap perlu dibandingkan dengan PDF resmi yang belum tersedia.
+Template resmi, render DOCX pada Microsoft Word, printer fisik, Safari/Firefox dan deployment HTTPS baru belum diverifikasi. Tidak ada OCR, backend, sinkronisasi multiuser, autentikasi identitas atau tanda tangan elektronik tersertifikasi. XLSX hanya lembar pertama; ekstraksi PDF dibatasi 500 halaman per berkas. Laporan memakai jam kalender; data historis tanpa timestamp dikecualikan. Rincian dan langkah reproduksi ada di docs/STAGE3.md.

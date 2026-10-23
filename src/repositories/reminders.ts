@@ -32,6 +32,7 @@ export async function refreshReminders() {
               id: notificationId,
               text,
               letterId: t.letterId,
+              minutesId: t.minutesId,
               read: false,
               createdAt: now(),
             });

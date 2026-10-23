@@ -31,8 +31,17 @@ import {
 import { db, dataMode } from "../storage/db";
 import { OfflineStatus } from "./pwa";
 import { DataCenter } from "../features/DataCenter";
-import { Trial, Help } from "../features/Trial";
+import { Trial } from "../features/Trial";
 import { ErrorBoundary } from "../components/ErrorBoundary";
+import { InteractiveHelp } from "../features/InteractiveHelp";
+import { Analytics } from "../features/Analytics";
+import { ContentSearch } from "../features/ContentSearch";
+import { SpreadsheetImport } from "../features/SpreadsheetImport";
+import { LeadershipAgenda } from "../features/LeadershipAgenda";
+import { Minutes } from "../features/Minutes";
+import { Cases } from "../features/Cases";
+import { Drafting, DraftEditor } from "../features/Drafting";
+import { ensureTemplates } from "../repositories/drafts";
 import { ensureCatalogs } from "../repositories/catalogs";
 import { refreshReminders } from "../repositories/reminders";
 import { seed } from "../storage/seed";
@@ -43,13 +52,7 @@ import { Letters, NewLetter } from "../features/Letters";
 import { Detail } from "../features/Detail";
 import { Print } from "../features/Print";
 import { LetterPrint } from "../features/LetterPrint";
-import {
-  Outgoing,
-  Agenda,
-  Master,
-  Settings,
-  Reports,
-} from "../features/Supporting";
+import { Outgoing, Master, Settings, Reports } from "../features/Supporting";
 import { Modal } from "../components/common";
 import "../styles/app.css";
 const nav = [
@@ -57,9 +60,15 @@ const nav = [
   ["/surat-masuk", "Surat Masuk", Mail],
   ["/disposisi", "Disposisi", GitBranch],
   ["/tugas", "Tugas Saya", ClipboardCheck],
+  ["/naskah", "Pembuat Naskah", Mail],
   ["/surat-keluar", "Surat Keluar", Send],
   ["/agenda", "Agenda", CalendarDays],
+  ["/notulen", "Notulen", ClipboardCheck],
+  ["/berkas-kegiatan", "Berkas Kegiatan", Archive],
+  ["/pencarian", "Pencarian Isi", Search],
+  ["/impor-register", "Impor Register", Database],
   ["/arsip", "Arsip", Archive],
+  ["/analisis", "Analisis Waktu", BarChart3],
   ["/laporan", "Laporan", BarChart3],
   ["/master", "Master Data", Database],
   ["/pengaturan", "Pengaturan", SettingsIcon],
@@ -129,6 +138,7 @@ function App() {
   useEffect(() => {
     seed(dataMode === "demo")
       .then(ensureCatalogs)
+      .then(ensureTemplates)
       .then(refreshReminders)
       .then(() => setReady(true))
       .catch((e) =>
@@ -307,15 +317,23 @@ function App() {
               <Route path="/surat-masuk/:id" element={<Detail />} />
               <Route path="/disposisi" element={<Letters dispositions />} />
               <Route path="/tugas" element={<Tasks />} />
+              <Route path="/naskah" element={<Drafting />} />
+              <Route path="/naskah/:id" element={<DraftEditor />} />
               <Route path="/surat-keluar" element={<Outgoing />} />
-              <Route path="/agenda" element={<Agenda />} />
+              <Route path="/agenda" element={<LeadershipAgenda />} />
+              <Route path="/notulen" element={<Minutes />} />
+              <Route path="/notulen/:id" element={<Minutes />} />
+              <Route path="/berkas-kegiatan" element={<Cases />} />
+              <Route path="/pencarian" element={<ContentSearch />} />
+              <Route path="/impor-register" element={<SpreadsheetImport />} />
               <Route path="/arsip" element={<Letters archive />} />
+              <Route path="/analisis" element={<Analytics />} />
               <Route path="/laporan" element={<Reports />} />
               <Route path="/master" element={<Master />} />
               <Route path="/pengaturan" element={<Settings />} />
               <Route path="/pusat-data" element={<DataCenter />} />
               <Route path="/uji-coba" element={<Trial />} />
-              <Route path="/bantuan" element={<Help />} />
+              <Route path="/bantuan" element={<InteractiveHelp />} />
               <Route path="/cetak/:id" element={<Print />} />
               <Route path="/cetak-detail/:id" element={<LetterPrint />} />
               <Route
@@ -332,7 +350,7 @@ function App() {
               <span>
                 SIMINU RSAS · Administrasi tertib, pelayanan lebih baik.
               </span>
-              <span>Frontend demo · v2.0</span>
+              <span>Frontend demo · v3.0</span>
             </footer>
           </main>
         </div>
@@ -364,7 +382,11 @@ function App() {
             .map((n) => (
               <div className="mini-card" key={n.id}>
                 <Link
-                  to={`/surat-masuk/${n.letterId}`}
+                  to={
+                    n.minutesId
+                      ? `/notulen/${n.minutesId}`
+                      : `/surat-masuk/${n.letterId}`
+                  }
                   onClick={() => {
                     void run(
                       () => db.notifications.update(n.id, { read: true }),

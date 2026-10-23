@@ -36,6 +36,7 @@ export async function register(
       letter.year = year;
       letter.register = register;
       letter.revision = 1;
+      if (letter.received === today()) letter.receivedAt = now();
       letter.updatedAt = now();
       if (autoAgenda) {
         const key = `${year}:${register}`;
@@ -89,6 +90,7 @@ export async function register(
   );
 }
 export async function aggregate(letterId: string) {
+  if (!letterId) return;
   const allTasks = await db.tasks.where({ letterId }).toArray();
   const active = new Set(
     (await db.dispositions.where({ letterId }).toArray())
@@ -254,18 +256,31 @@ export async function taskAction(
           throw Error("Alasan perbaikan wajib diisi.");
         status = action === "approve" ? "Selesai" : "Perlu perbaikan";
       }
-      await db.tasks.update(taskId, { status });
+      const at = now();
+      const times: Partial<Task> = {};
+      if (action === "accept") times.acceptedAt = at;
+      if (action === "progress" && !task.startedAt) times.startedAt = at;
+      if (action === "submit") times.submittedAt = at;
+      if (action === "approve" || action === "return") times.reviewedAt = at;
+      if (status === "Selesai") times.completedAt = at;
+      await db.tasks.update(taskId, { status, ...times });
       await aggregate(task.letterId);
-      await log(
-        task.letterId,
-        `${task.unitName}: ${action} → ${status}${text ? ": " + text : ""}`,
+      await db.activities.add({
+        id: id(),
+        letterId: task.letterId,
+        minutesId: task.minutesId,
+        taskId,
+        event: action,
+        text: `${task.unitName}: ${action} → ${status}${text ? ": " + text : ""}`,
         author,
-      );
+        createdAt: at,
+      });
       if (["submit", "return"].includes(action))
         await db.notifications.add({
           id: id(),
           letterId: task.letterId,
           text: `${task.unitName}: ${status}`,
+          minutesId: task.minutesId,
           read: false,
           createdAt: now(),
         });
