@@ -20,12 +20,19 @@ export interface Unit {
   userId?: string;
 }
 export interface Position {
+  active?: boolean;
   id: string;
   name: string;
   unitId: string;
   userId?: string;
 }
 export interface IncomingLetter {
+  revision?: number;
+  updatedAt?: string;
+  register?: string;
+  year?: string;
+  favorite?: boolean;
+  cancelledReason?: string;
   id: string;
   agenda: string;
   sender: string;
@@ -48,6 +55,14 @@ export interface IncomingLetter {
   createdAt: string;
 }
 export interface OutgoingLetter {
+  kind?: string;
+  classification?: string;
+  unitId?: string;
+  favorite?: boolean;
+  attachmentIds?: string[];
+  sentAt?: string;
+  sentTo?: string;
+  revision?: number;
   id: string;
   subject: string;
   recipient: string;
@@ -82,6 +97,7 @@ export interface Disposition {
   review: boolean;
   createdAt: string;
   revisionOf?: string;
+  parentId?: string;
   reason?: string;
   cancelled?: boolean;
 }
@@ -92,8 +108,10 @@ export type TaskStatus =
   | "Diproses"
   | "Hasil dikirim"
   | "Perlu perbaikan"
-  | "Selesai";
+  | "Selesai"
+  | "Dibatalkan";
 export interface Task {
+  previousStatus?: TaskStatus;
   id: string;
   letterId: string;
   dispositionId: string;
@@ -133,6 +151,9 @@ export interface Comment {
   createdAt: string;
 }
 export interface AgendaEvent {
+  userId?: string;
+  start?: string;
+  end?: string;
   id: string;
   title: string;
   date: string;
@@ -147,6 +168,8 @@ export interface Notification {
   createdAt: string;
 }
 export interface ActivityLog {
+  before?: unknown;
+  after?: unknown;
   id: string;
   letterId: string;
   text: string;
@@ -161,4 +184,25 @@ export interface AppSettings {
   printDate: string;
   timezone: string;
   extraInstructions: string;
+  hospital?: string;
+  agendaPattern?: string;
+  backupDays?: number;
+  lastBackupAt?: string;
+}
+export interface Sequence {
+  id: string;
+  value: number;
+}
+export interface RecoverySnapshot {
+  id: string;
+  createdAt: string;
+  blob: Blob;
+  name: string;
+}
+export interface CatalogItem {
+  id: string;
+  category: "kind" | "urgency" | "classification" | "instruction";
+  name: string;
+  active: boolean;
+  order: number;
 }

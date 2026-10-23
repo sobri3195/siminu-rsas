@@ -16,6 +16,7 @@ import {
   ArrowUpRight,
   ArrowRight,
   CheckCheck,
+  Send,
 } from "lucide-react";
 import { db } from "../storage/db";
 import { useApp } from "../app/context";
@@ -25,22 +26,43 @@ import { overdue } from "../repositories/workflow";
 import { TaskCard } from "./Detail";
 export function Dashboard() {
   const { user } = useApp();
-  const letters = useLiveQuery(() => db.letters.toArray()) || [];
-  const all = useLiveQuery(() => db.tasks.toArray()) || [];
-  const ds = useLiveQuery(() => db.dispositions.toArray()) || [];
+  const lettersQuery = useLiveQuery(() => db.letters.toArray());
+  const letters = lettersQuery || [];
+  const allQuery = useLiveQuery(() => db.tasks.toArray());
+  const all = allQuery || [];
+  const dsQuery = useLiveQuery(() => db.dispositions.toArray());
+  const ds = dsQuery || [];
   const tasks = all.filter(
-    (t) => !ds.find((d) => d.id === t.dispositionId)?.cancelled,
+    (t) =>
+      !ds.find((d) => d.id === t.dispositionId)?.cancelled &&
+      t.status !== "Dibatalkan",
   );
-  const outgoing = useLiveQuery(() => db.outgoing.toArray()) || [];
-  const logs = useLiveQuery(() => db.activities.toArray()) || [];
-  const units = useLiveQuery(() => db.units.toArray()) || [];
+  const outgoingQuery = useLiveQuery(() => db.outgoing.toArray());
+  const outgoing = outgoingQuery || [];
+  const logsQuery = useLiveQuery(() => db.activities.toArray());
+  const logs = logsQuery || [];
+  const unitsQuery = useLiveQuery(() => db.units.toArray());
+  const units = unitsQuery || [];
+  if (
+    [
+      lettersQuery,
+      allQuery,
+      dsQuery,
+      outgoingQuery,
+      logsQuery,
+      unitsQuery,
+    ].some((data) => data === undefined)
+  )
+    return <Empty text="Memuat ringkasan data lokal…" />;
   const mine = tasks.filter(
     (t) =>
       ["Admin Sistem", "Kepala RSAU"].includes(user.role) ||
       t.userId === user.id,
   );
   const pending = letters.filter((l) => l.status === "Menunggu disposisi");
-  const active = mine.filter((t) => t.status !== "Selesai");
+  const active = mine.filter(
+    (t) => !["Selesai", "Dibatalkan"].includes(t.status),
+  );
   const stats = [
     {
       label: "Menunggu disposisi",
@@ -137,6 +159,23 @@ export function Dashboard() {
         ))}
       </div>
       <div className="period-summary">
+        <Link to={`/surat-keluar?from=${periodStart}&to=${today()}`}>
+          <Send size={19} />
+          <div>
+            <strong>
+              {
+                outgoing.filter(
+                  (l) =>
+                    l.createdAt.slice(0, 10) >= periodStart &&
+                    l.createdAt.slice(0, 10) <= today(),
+                ).length
+              }{" "}
+              surat keluar bulan ini
+            </strong>
+            <small>Dokumen unik berdasarkan tanggal pembuatan</small>
+          </div>
+          <ArrowRight size={17} />
+        </Link>
         <Link to={`/surat-masuk?from=${periodStart}&to=${today()}`}>
           <Mail size={19} />
           <div>
@@ -162,8 +201,8 @@ export function Dashboard() {
                       periodTasks.length) *
                       100,
                   )
-                : 0}
-              % penyelesaian periode berjalan
+                : "Belum ada data"}
+              {periodTasks.length ? "%" : ""} penyelesaian periode berjalan
             </strong>
             <small>
               Tugas wajib yang dibuat bulan ini ·{" "}
@@ -298,6 +337,9 @@ export function Dashboard() {
             <h2>Penyelesaian per unit</h2>
             <CheckCheck size={21} />
           </div>
+          {!tasks.length && (
+            <Empty text="Belum ada tugas wajib untuk menghitung persentase penyelesaian." />
+          )}
           {units
             .filter((u) => tasks.some((t) => t.unitId === u.id))
             .slice(0, 4)
@@ -369,7 +411,8 @@ export function Tasks() {
       (t) =>
         (!p.get("from") || t.createdAt.slice(0, 10) >= p.get("from")!) &&
         (!p.get("to") || t.createdAt.slice(0, 10) <= p.get("to")!) &&
-        !ds.find((d) => d.id === t.dispositionId)?.cancelled &&
+        (!ds.find((d) => d.id === t.dispositionId)?.cancelled ||
+          filter === "Dibatalkan") &&
         (user.role === "Admin Sistem" ||
           user.role === "Kepala RSAU" ||
           t.userId === user.id),
@@ -377,10 +420,10 @@ export function Tasks() {
     .filter(
       (t) =>
         filter === "semua" ||
-        (filter === "aktif" && t.status !== "Selesai") ||
+        (filter === "aktif" && !["Selesai", "Dibatalkan"].includes(t.status)) ||
         (filter === "hari-ini" &&
           t.deadline === today() &&
-          t.status !== "Selesai") ||
+          !["Selesai", "Dibatalkan"].includes(t.status)) ||
         (filter === "terlambat" && overdue(t)) ||
         filter === t.status,
     );
@@ -424,6 +467,7 @@ export function Tasks() {
             ["Hasil dikirim", "Menunggu pemeriksaan"],
             ["Perlu perbaikan", "Perlu perbaikan"],
             ["Selesai", "Selesai"],
+            ["Dibatalkan", "Dibatalkan"],
           ].map(([v, l]) => (
             <option key={v} value={v}>
               {l}
@@ -442,6 +486,7 @@ export function Tasks() {
             "Hasil dikirim",
             "Perlu perbaikan",
             "Selesai",
+            ...(filter === "Dibatalkan" ? ["Dibatalkan"] : []),
           ].map((status) => (
             <section className="kanban-column" key={status}>
               <h2>

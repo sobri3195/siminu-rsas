@@ -56,9 +56,13 @@ export function samplePdf(subject: string) {
     `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
   return new Blob([pdf], { type: "application/pdf" });
 }
-export async function seed() {
+export async function seed(includeSamples = true) {
   await db.transaction("rw", db.tables, async () => {
     if (await db.settings.count()) return;
+    if (await db.letters.count())
+      throw Error(
+        "Data lama ditemukan tanpa pengaturan. Buat cadangan sebelum memperbaiki konfigurasi.",
+      );
     const roles: Role[] = [
       "Admin Sistem",
       "Petugas Urtu/Administrasi",
@@ -108,6 +112,7 @@ export async function seed() {
       timezone: "Asia/Jakarta",
       extraInstructions: "",
     });
+    if (!includeSamples) return;
     const subjects = [
       "Undangan rapat koordinasi",
       "Permohonan dukungan kesehatan",
@@ -169,7 +174,10 @@ export async function seed() {
           kind: (k === 2 ? "Tembusan" : k === 0 ? "Utama" : "Pendukung") as
             "Utama" | "Pendukung" | "Tembusan",
           instruction: "Tindak lanjuti dan laporkan hasil",
-          deadline: i % 3 === 0 ? "2025-01-01" : today(),
+          deadline:
+            i % 3 === 0
+              ? new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10)
+              : today(),
         }));
         await db.dispositions.add({
           id: did,

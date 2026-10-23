@@ -1,13 +1,18 @@
-# Build SIMINU RSAS frontend demo with correspondence workflow
+## Perubahan
 
-Implement the initial React, Vite, and TypeScript application for RSAS administration. The demo runs without a backend or credentials and persists metadata and attachments in IndexedDB.
+Aplikasi sebelumnya membutuhkan koneksi untuk memuat aset dan hanya menyediakan cadangan metadata. PR ini menambahkan PWA dengan cache app shell, deep link offline, indikator kesiapan cache, dan pembaruan service worker yang ditahan saat formulir belum disimpan.
 
-The main workflow covers incoming-letter registration, leadership submission, multiunit dispositions, recipient tasks, progress, completion reports, result review/return, and archival. A document stays open until every active required task is complete; copies and discussion messages do not count as completed work. Revisions and cancellation reasons preserve earlier dispositions and task history.
+Pusat Data Lokal mengekspor ZIP berisi metadata, manifest dan lampiran asli dengan SHA-256. Pemulihan memvalidasi skema/ukuran/jumlah/referensi/checksum, menyediakan pilihan konflik per ID, dan membuat cadangan otomatis sebelum penggantian dalam transaksi. Perubahan setelah pratinjau meminta peninjauan ulang.
 
-Includes role simulation, searchable registers, work dashboard, outgoing-letter metadata stages, calendar, task Kanban, editable unit hierarchy/PICs, reports/CSV, validated metadata backups, printable disposition sheets, sample PDFs, 32 incoming and 10 outgoing letters, and Vercel SPA configuration.
+Database pengguna lama dipertahankan melalui migrasi Dexie v2; data contoh memakai database terpisah. Ditambahkan koreksi metadata beralasan dengan revisi antar-tab, nomor agenda transaksional, status tugas Dibatalkan beserta riwayat sebelumnya, pengingat ketika aplikasi aktif, agenda dengan waktu/PIC/surat terkait, lampiran dan pengiriman surat keluar, arsip terpadu/favorit, master tambahan, bantuan dan checklist uji terpandu. Tema dan alur utama dipertahankan.
 
-Validation: production build and TypeScript checks; five repository tests; two Chromium browser scenarios covering the core workflow, persistence/reload, 360 px navigation, dashboard filters, sample PDF content, outgoing stages, calendar, master data, report downloads, metadata export, and print generation. Normal disposition output is one A4 page. See README for commands and demo steps.
+## Validasi
 
-The official screenshot and Format Disposisi.pdf were not supplied. Print content follows the textual specification and still needs comparison against that source. No Vercel deployment, production authentication, external notifications, or certified electronic signing is claimed. Browser-local history is mutable; metadata backups exclude attachment bytes. Outgoing letters record administrative stages and do not send correspondence.
+- TypeScript dan build produksi lolos.
+- 15 tes repository: alur tugas, migrasi/Blob, agenda bersamaan, koreksi usang, ZIP/checksum/referensi/konflik, pemulihan/cadangan otomatis, CSV formula.
+- 9 skenario Chromium pada build produksi: alur surat sampai arsip, koneksi browser dimatikan, deep link/data/lampiran/disposisi/progres/cetak/ZIP offline, restart profil browser, dua tab, quota, pemulihan ZIP melalui UI, pembaruan service worker yang menjaga draf, isolasi reset contoh, desktop/tablet/360 px dan keyboard.
+- Cetak A4 menghasilkan dokumen normal satu halaman serta catatan panjang dengan penanda akhir tetap tersedia.
 
-The repository was empty. An empty initial commit on main supplies the comparison base; all application code is on feat/siminu-rsas-demo.
+## Batasan
+
+Belum diuji pada Safari/iOS, Firefox, pemasangan PWA oleh pengguna, printer fisik, atau deployment HTTPS versi baru. Akses deployment referensi ditolak proxy lingkungan. Tidak ada backend, autentikasi produksi, sinkronisasi, pengiriman korespondensi, notifikasi saat browser tertutup, atau tanda tangan elektronik tersertifikasi. Batas ZIP: 150 MB per paket, 30 MB per berkas, maksimal 2.500 lampiran. Format cetak tetap perlu dibandingkan dengan PDF resmi yang belum tersedia.

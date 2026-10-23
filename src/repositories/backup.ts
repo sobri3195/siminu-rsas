@@ -59,11 +59,12 @@ const task = base.extend({
     "Hasil dikirim",
     "Perlu perbaikan",
     "Selesai",
+    "Dibatalkan",
   ]),
   review: z.boolean(),
   createdAt: z.iso.datetime(),
 });
-const schemas = {
+export const schemas = {
   letters: letter,
   outgoing: base.extend({
     subject: z.string(),
@@ -133,6 +134,13 @@ const schemas = {
     author: z.string(),
     createdAt: z.iso.datetime(),
   }),
+  catalogs: base.extend({
+    category: z.enum(["kind", "urgency", "classification", "instruction"]),
+    name: z.string(),
+    active: z.boolean(),
+    order: z.number(),
+  }),
+  sequences: base.extend({ value: z.number().int().nonnegative() }),
   settings: base.extend({
     official: z.string(),
     rank: z.string(),
