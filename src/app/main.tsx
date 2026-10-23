@@ -28,7 +28,13 @@ import {
   ShieldCheck,
   ChevronRight,
 } from "lucide-react";
-import { db } from "../storage/db";
+import { db, dataMode } from "../storage/db";
+import { OfflineStatus } from "./pwa";
+import { DataCenter } from "../features/DataCenter";
+import { Trial, Help } from "../features/Trial";
+import { ErrorBoundary } from "../components/ErrorBoundary";
+import { ensureCatalogs } from "../repositories/catalogs";
+import { refreshReminders } from "../repositories/reminders";
 import { seed } from "../storage/seed";
 import { setDisplayTimezone, timestampLabel } from "../utils";
 import { AppContext } from "./context";
@@ -36,6 +42,7 @@ import { Dashboard, Tasks } from "../features/Dashboard";
 import { Letters, NewLetter } from "../features/Letters";
 import { Detail } from "../features/Detail";
 import { Print } from "../features/Print";
+import { LetterPrint } from "../features/LetterPrint";
 import {
   Outgoing,
   Agenda,
@@ -56,6 +63,9 @@ const nav = [
   ["/laporan", "Laporan", BarChart3],
   ["/master", "Master Data", Database],
   ["/pengaturan", "Pengaturan", SettingsIcon],
+  ["/pusat-data", "Pusat Data Lokal", Database],
+  ["/uji-coba", "Uji Coba Sistem", ClipboardCheck],
+  ["/bantuan", "Bantuan", ShieldCheck],
 ] as const;
 function App() {
   const settings = useLiveQuery(() => db.settings.get("main"));
@@ -70,12 +80,45 @@ function App() {
       }
     }
   }, [settings?.timezone]);
-  const users = useLiveQuery(() => db.users.toArray()) || [];
+  const users = (useLiveQuery(() => db.users.toArray()) || []).filter(
+    (u) => u.active,
+  );
   const [uid, setUid] = useState(localStorage.getItem("rsas-user") || "user-0");
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(
+    localStorage.getItem("rsas-sidebar") === "collapsed",
+  );
+  useEffect(
+    () =>
+      localStorage.setItem(
+        "rsas-sidebar",
+        collapsed ? "collapsed" : "expanded",
+      ),
+    [collapsed],
+  );
+  useEffect(() => {
+    const changed = () =>
+      setNotice(
+        "Data diperbarui dari tab lain. Formulir koreksi akan memeriksa konflik sebelum menyimpan.",
+      );
+    const upgrade = () =>
+      setError(
+        "Versi database berubah. Tutup tab lain yang masih memakai versi lama, lalu muat ulang aplikasi.",
+      );
+    window.addEventListener("rsas-other-tab", changed);
+    window.addEventListener("rsas-db-upgrade", upgrade);
+    const timer = setInterval(
+      () => void refreshReminders().catch(() => {}),
+      60000,
+    );
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("rsas-other-tab", changed);
+      window.removeEventListener("rsas-db-upgrade", upgrade);
+    };
+  }, []);
   const [mobile, setMobile] = useState(false);
   const [notification, setNotification] = useState(false);
   const [query, setQuery] = useState("");
@@ -84,7 +127,9 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
   useEffect(() => {
-    seed()
+    seed(dataMode === "demo")
+      .then(ensureCatalogs)
+      .then(refreshReminders)
       .then(() => setReady(true))
       .catch((e) =>
         setError("Penyimpanan browser tidak dapat dibuka: " + String(e)),
@@ -119,7 +164,7 @@ function App() {
         )}
       </main>
     );
-  const print = location.pathname.startsWith("/cetak/");
+  const print = /^\/cetak(?:-detail)?\//.test(location.pathname);
   return (
     <AppContext.Provider value={{ user, run }}>
       <div
@@ -244,7 +289,11 @@ function App() {
               Pemilihan peran adalah simulasi
             </span>
           </div>
+          <OfflineStatus />
           <main className="content">
+            <div className="print-only">
+              SIMINU RSAS · RSAU Prof. dr. Abdulrachman Saleh · CONTOH/DEMO
+            </div>
             <div className="breadcrumb">
               Ruang kerja <ChevronRight size={13} />{" "}
               {nav.find(
@@ -264,7 +313,11 @@ function App() {
               <Route path="/laporan" element={<Reports />} />
               <Route path="/master" element={<Master />} />
               <Route path="/pengaturan" element={<Settings />} />
+              <Route path="/pusat-data" element={<DataCenter />} />
+              <Route path="/uji-coba" element={<Trial />} />
+              <Route path="/bantuan" element={<Help />} />
               <Route path="/cetak/:id" element={<Print />} />
+              <Route path="/cetak-detail/:id" element={<LetterPrint />} />
               <Route
                 path="*"
                 element={
@@ -279,7 +332,7 @@ function App() {
               <span>
                 SIMINU RSAS · Administrasi tertib, pelayanan lebih baik.
               </span>
-              <span>Frontend demo · v1.0</span>
+              <span>Frontend demo · v2.0</span>
             </footer>
           </main>
         </div>
@@ -334,7 +387,9 @@ function App() {
   );
 }
 createRoot(document.getElementById("root")!).render(
-  <BrowserRouter>
-    <App />
-  </BrowserRouter>,
+  <ErrorBoundary>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </ErrorBoundary>,
 );

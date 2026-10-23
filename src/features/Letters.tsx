@@ -5,7 +5,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Search, ArrowRight, FileText } from "lucide-react";
-import { db } from "../storage/db";
+import { db, dataMode } from "../storage/db";
+import { ArchivedOutgoing } from "./ArchivedOutgoing";
+import { useUnsavedChanges } from "../app/unsaved";
+import { download, now as draftNow } from "../utils";
 import { useApp } from "../app/context";
 import { canRegister, register } from "../repositories/workflow";
 import { Badge, Empty, Field } from "../components/common";
@@ -33,8 +36,23 @@ export function Letters({
   const letters = useLiveQuery(() => db.letters.toArray()) || [];
   const tasks = useLiveQuery(() => db.tasks.toArray()) || [];
   const units = useLiveQuery(() => db.units.toArray()) || [];
+  const dispositionsData =
+    useLiveQuery(() => (archive ? db.dispositions.toArray() : []), [archive]) ||
+    [];
+  const reportsData =
+    useLiveQuery(() => (archive ? db.reports.toArray() : []), [archive]) || [];
   const { user } = useApp();
   const [params, setParams] = useSearchParams();
+  const filterKey = `filters-${dataMode}-${archive ? "archive" : dispositions ? "dispositions" : "incoming"}`;
+  useEffect(() => {
+    if (!params.size && localStorage.getItem(filterKey))
+      setParams(new URLSearchParams(localStorage.getItem(filterKey)!), {
+        replace: true,
+      });
+  }, [filterKey]);
+  useEffect(() => {
+    localStorage.setItem(filterKey, params.toString());
+  }, [params, filterKey]);
   const [search, setSearch] = useState(params.get("q") || "");
   useEffect(() => setSearch(params.get("q") || ""), [params.get("q")]);
   const filtered = letters.filter(
@@ -55,13 +73,51 @@ export function Letters({
         tasks.some(
           (t) => t.letterId === l.id && t.unitId === params.get("unit"),
         )) &&
-      `${l.subject} ${l.sender} ${l.number} ${l.agenda}`
+      (!params.get("year") || l.received.startsWith(params.get("year")!)) &&
+      (!params.get("favorite") || l.favorite) &&
+      `${l.subject} ${l.sender} ${l.number} ${l.agenda} ${l.summary} ${dispositionsData
+        .filter((d) => d.letterId === l.id)
+        .map(
+          (d) =>
+            d.notes +
+            " " +
+            d.instructions.join(" ") +
+            " " +
+            d.recipients.map((r) => r.unitName).join(" "),
+        )
+        .join(" ")} ${reportsData
+        .filter((r) =>
+          tasks.some((t) => t.letterId === l.id && t.id === r.taskId),
+        )
+        .map((r) => r.result + " " + r.action)
+        .join(" ")}`
         .toLowerCase()
         .includes(search.toLowerCase()),
   );
+  const sorted = [...filtered].sort((a, b) =>
+    params.get("sort") === "subject"
+      ? a.subject.localeCompare(b.subject, "id")
+      : params.get("sort") === "oldest"
+        ? a.received.localeCompare(b.received)
+        : b.received.localeCompare(a.received),
+  );
+  const pageSize = [10, 25, 50].includes(Number(params.get("size")))
+    ? Number(params.get("size"))
+    : 10;
+  const page = Math.min(
+    Math.max(
+      1,
+      Number.isFinite(Number(params.get("page")))
+        ? Math.floor(Number(params.get("page") || 1))
+        : 1,
+    ),
+    Math.max(1, Math.ceil(sorted.length / pageSize)),
+  );
+  const pageRows = sorted.slice((page - 1) * pageSize, page * pageSize);
   const change = (key: string, value: string) => {
     const p = new URLSearchParams(params);
     value ? p.set(key, value) : p.delete(key);
+    if (key !== "page") p.delete("page");
     setParams(p);
   };
   return (
@@ -123,6 +179,49 @@ export function Letters({
               <option key={s}>{s}</option>
             ))}
           </select>
+        </div>
+        <div className="toolbar">
+          <Field label="Urutkan">
+            <select
+              value={params.get("sort") || "newest"}
+              onChange={(e) => change("sort", e.target.value)}
+            >
+              <option value="newest">Terbaru</option>
+              <option value="oldest">Terlama</option>
+              <option value="subject">Perihal A–Z</option>
+            </select>
+          </Field>
+          <Field label="Jumlah per halaman">
+            <select
+              value={pageSize}
+              onChange={(e) => change("size", e.target.value)}
+            >
+              {[10, 25, 50].map((n) => (
+                <option key={n}>{n}</option>
+              ))}
+            </select>
+          </Field>
+          {archive && (
+            <>
+              <Field label="Tahun arsip">
+                <input
+                  value={params.get("year") || ""}
+                  placeholder="Contoh: 2026"
+                  onChange={(e) => change("year", e.target.value)}
+                />
+              </Field>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={!!params.get("favorite")}
+                  onChange={(e) =>
+                    change("favorite", e.target.checked ? "1" : "")
+                  }
+                />{" "}
+                Hanya favorit
+              </label>
+            </>
+          )}
         </div>
         <details className="filters">
           <summary>Filter lanjutan · {filtered.length} surat</summary>
@@ -204,7 +303,7 @@ export function Letters({
               </tr>
             </thead>
             <tbody>
-              {filtered.map((l) => (
+              {pageRows.map((l) => (
                 <tr key={l.id}>
                   <td>
                     <strong>{l.agenda}</strong>
@@ -249,11 +348,29 @@ export function Letters({
           </table>
         </div>
         {!filtered.length && <Empty />}
+        <div className="pagination">
+          <button
+            disabled={page <= 1}
+            onClick={() => change("page", String(page - 1))}
+          >
+            Sebelumnya
+          </button>
+          <span>
+            Halaman {page} / {Math.max(1, Math.ceil(sorted.length / pageSize))}
+          </span>
+          <button
+            disabled={page * pageSize >= sorted.length}
+            onClick={() => change("page", String(page + 1))}
+          >
+            Berikutnya
+          </button>
+        </div>
         <footer className="panel-footer">
           Menampilkan {filtered.length} dari {letters.length} surat · Tersimpan
           di browser ini
         </footer>
       </section>
+      {archive && <ArchivedOutgoing params={params} />}
     </>
   );
 }
@@ -264,10 +381,22 @@ export function NewLetter() {
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const catalogs = useLiveQuery(() => db.catalogs.toArray()) || [];
   const loadedLetters = useLiveQuery(() => db.letters.toArray());
   const letters = loadedLetters || [];
-  const saved = localStorage.getItem("rsas-letter-draft");
-  const initial = saved ? JSON.parse(saved) : {};
+  const saved =
+    localStorage.getItem(`rsas-letter-draft-${dataMode}`) ||
+    (dataMode === "local" ? localStorage.getItem("rsas-letter-draft") : null);
+  const initial = (() => {
+    try {
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  })();
+  const [lastSaved, setLastSaved] = useState(
+    localStorage.getItem(`rsas-draft-time-${dataMode}`) || "",
+  );
   const {
     register: field,
     handleSubmit,
@@ -275,7 +404,7 @@ export function NewLetter() {
     trigger,
     setValue,
     reset,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, dirtyFields },
   } = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -293,6 +422,7 @@ export function NewLetter() {
     },
   });
   const values = watch();
+  useUnsavedChanges(isDirty || files.length > 0);
   useEffect(() => {
     if (loadedLetters && !values.agenda) {
       const next =
@@ -312,7 +442,13 @@ export function NewLetter() {
     const subscription = watch((v) =>
       (() => {
         try {
-          localStorage.setItem("rsas-letter-draft", JSON.stringify(v));
+          localStorage.setItem(
+            `rsas-letter-draft-${dataMode}`,
+            JSON.stringify(v),
+          );
+          const time = draftNow();
+          localStorage.setItem(`rsas-draft-time-${dataMode}`, time);
+          setLastSaved(time);
         } catch {
           setError(
             "Draf otomatis gagal disimpan. Periksa kapasitas penyimpanan browser.",
@@ -365,8 +501,10 @@ export function NewLetter() {
         },
         files,
         user.name,
+        !dirtyFields.agenda,
       );
-      localStorage.removeItem("rsas-letter-draft");
+      localStorage.removeItem(`rsas-letter-draft-${dataMode}`);
+      if (dataMode === "local") localStorage.removeItem("rsas-letter-draft");
       await run(async () => {}, "Surat berhasil diregistrasi.");
       navigate("/surat-masuk");
     } catch (e) {
@@ -405,7 +543,9 @@ export function NewLetter() {
               classification: "Biasa",
               summary: "",
             });
-            localStorage.removeItem("rsas-letter-draft");
+            localStorage.removeItem(`rsas-letter-draft-${dataMode}`);
+            if (dataMode === "local")
+              localStorage.removeItem("rsas-letter-draft");
             setFiles([]);
             setStep(1);
             setError("");
@@ -423,6 +563,25 @@ export function NewLetter() {
           ),
         )}
       </div>
+      <p className="muted">
+        Draf terakhir:{" "}
+        {lastSaved
+          ? new Date(lastSaved).toLocaleTimeString("id-ID")
+          : "Belum tersimpan"}
+      </p>
+      <button
+        type="button"
+        onClick={() =>
+          download(
+            new Blob([JSON.stringify(values, null, 2)], {
+              type: "application/json",
+            }),
+            "draf-surat.json",
+          )
+        }
+      >
+        Ekspor draf metadata
+      </button>
       <form
         className="panel form-panel"
         onSubmit={(e) => {
@@ -484,13 +643,13 @@ export function NewLetter() {
                 }
               >
                 <select {...field(k)}>
-                  {[
-                    ["Surat dinas", "Undangan", "Nota dinas"],
-                    ["Biasa", "Segera", "Sangat segera"],
-                    ["Biasa", "Terbatas", "Rahasia"],
-                  ][i].map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
+                  {catalogs
+                    .filter((c) => c.active && c.category === k)
+                    .sort((a, b) => a.order - b.order)
+                    .map((c) => c.name)
+                    .map((s) => (
+                      <option key={s}>{s}</option>
+                    ))}
                 </select>
               </Field>
             ))}

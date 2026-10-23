@@ -1,22 +1,42 @@
 import { useState } from "react";
 import { Calendar } from "../components/Calendar";
-import { Link } from "react-router-dom";
+import { csvCell } from "../utils/csv";
+import { Link, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "../storage/db";
+import { db, dataMode } from "../storage/db";
+import { AdvancedMaster } from "./AdvancedMaster";
+import { ensureCatalogs } from "../repositories/catalogs";
 import { seed } from "../storage/seed";
 import { useApp } from "../app/context";
 import { Badge, Empty, Field, Modal } from "../components/common";
 import { dateLabel, download, id, now, today } from "../utils";
-import { exportBackup, importBackup } from "../repositories/backup";
-import type { AppSettings, Unit } from "../types";
+import { exportBackup } from "../repositories/backup";
+import type { AppSettings, Unit, OutgoingLetter } from "../types";
 export function Outgoing() {
   const { user, run } = useApp();
-  const list = useLiveQuery(() => db.outgoing.toArray()) || [];
+  const [params] = useSearchParams();
+  const allOutgoing = useLiveQuery(() => db.outgoing.toArray()) || [];
+  const list = allOutgoing.filter(
+    (l) =>
+      (!params.get("from") ||
+        l.createdAt.slice(0, 10) >= params.get("from")!) &&
+      (!params.get("to") || l.createdAt.slice(0, 10) <= params.get("to")!),
+  );
   const letters = useLiveQuery(() => db.letters.toArray()) || [];
   const [open, setOpen] = useState(false);
   const [subject, setSubject] = useState("");
   const [recipient, setRecipient] = useState("");
   const [incoming, setIncoming] = useState("");
+  const [outFiles, setOutFiles] = useState<File[]>([]);
+  const [outKind, setOutKind] = useState("Surat dinas");
+  const [outClassification, setOutClassification] = useState("Biasa");
+  const [outUnit, setOutUnit] = useState("");
+  const outUnits = useLiveQuery(() => db.units.toArray()) || [];
+  const outCatalogs = useLiveQuery(() => db.catalogs.toArray()) || [];
+  const attachments = useLiveQuery(() => db.attachments.toArray()) || [];
+  const [shipping, setShipping] = useState<OutgoingLetter>();
+  const [sentDate, setSentDate] = useState(today());
+  const [sentTo, setSentTo] = useState("");
   const stages = [
     "Draf",
     "Pemeriksaan",
@@ -64,6 +84,26 @@ export function Outgoing() {
                   <td>
                     <strong>{l.subject}</strong>
                     <small>{l.recipient}</small>
+                    {l.sentAt && (
+                      <small>
+                        Dikirim {dateLabel(l.sentAt)} → {l.sentTo}
+                      </small>
+                    )}
+                    {(l.attachmentIds || []).map((aid) => {
+                      const file = attachments.find((a) => a.id === aid);
+                      return file ? (
+                        <button
+                          key={aid}
+                          onClick={() => download(file.blob, file.name)}
+                        >
+                          Unduh {file.name}
+                        </button>
+                      ) : (
+                        <small key={aid} className="error">
+                          Lampiran tidak tersedia
+                        </small>
+                      );
+                    })}
                     {l.incomingId && (
                       <Link to={`/surat-masuk/${l.incomingId}`}>
                         Surat yang dibalas
@@ -79,6 +119,11 @@ export function Outgoing() {
                       <button
                         onClick={() =>
                           run(async () => {
+                            if (idx === 4) {
+                              setShipping(l);
+                              setSentTo(l.recipient);
+                              return;
+                            }
                             const patch: { status: string; number?: string } = {
                               status: stages[idx + 1],
                             };
@@ -113,6 +158,39 @@ export function Outgoing() {
           </tbody>
         </table>
       </section>
+      {shipping && (
+        <Modal
+          title="Pencatatan pengiriman surat"
+          onClose={() => setShipping(undefined)}
+        >
+          <Field label="Tanggal pengiriman *">
+            <input
+              type="date"
+              value={sentDate}
+              onChange={(e) => setSentDate(e.target.value)}
+            />
+          </Field>
+          <Field label="Tujuan pengiriman *">
+            <input value={sentTo} onChange={(e) => setSentTo(e.target.value)} />
+          </Field>
+          <button
+            className="primary"
+            disabled={!sentDate || !sentTo.trim()}
+            onClick={() =>
+              run(async () => {
+                await db.outgoing.update(shipping.id, {
+                  status: "Diarsipkan",
+                  sentAt: sentDate,
+                  sentTo,
+                });
+                setShipping(undefined);
+              }, "Pengiriman dicatat dan surat diarsipkan.")
+            }
+          >
+            Simpan pengiriman & arsip
+          </button>
+        </Modal>
+      )}
       {open && (
         <Modal title="Draf surat keluar" onClose={() => setOpen(false)}>
           <Field label="Perihal *">
@@ -125,6 +203,54 @@ export function Outgoing() {
             <input
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
+            />
+          </Field>
+          <div className="grid2">
+            <Field label="Jenis naskah keluar">
+              <select
+                value={outKind}
+                onChange={(e) => setOutKind(e.target.value)}
+              >
+                {outCatalogs
+                  .filter((c) => c.category === "kind" && c.active)
+                  .map((c) => (
+                    <option key={c.id}>{c.name}</option>
+                  ))}
+              </select>
+            </Field>
+            <Field label="Klasifikasi surat keluar">
+              <select
+                value={outClassification}
+                onChange={(e) => setOutClassification(e.target.value)}
+              >
+                {outCatalogs
+                  .filter((c) => c.category === "classification" && c.active)
+                  .map((c) => (
+                    <option key={c.id}>{c.name}</option>
+                  ))}
+              </select>
+            </Field>
+          </div>
+          <Field label="Unit pengirim">
+            <select
+              value={outUnit}
+              onChange={(e) => setOutUnit(e.target.value)}
+            >
+              <option value="">Belum ditetapkan</option>
+              {outUnits
+                .filter((u) => u.active)
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+            </select>
+          </Field>
+          <Field label="Lampiran surat keluar">
+            <input
+              type="file"
+              multiple
+              onChange={(e) => setOutFiles(Array.from(e.target.files || []))}
             />
           </Field>
           <Field label="Balasan untuk surat masuk">
@@ -145,15 +271,39 @@ export function Outgoing() {
             disabled={!subject.trim() || !recipient.trim()}
             onClick={() =>
               run(async () => {
-                await db.outgoing.add({
-                  id: id(),
-                  subject,
-                  recipient,
-                  status: "Draf",
-                  number: "",
-                  incomingId: incoming || undefined,
-                  createdAt: now(),
-                });
+                await db.transaction(
+                  "rw",
+                  [db.outgoing, db.attachments],
+                  async () => {
+                    const outgoingId = id();
+                    const attachmentIds: string[] = [];
+                    for (const file of outFiles) {
+                      const aid = id();
+                      attachmentIds.push(aid);
+                      await db.attachments.add({
+                        id: aid,
+                        letterId: outgoingId,
+                        name: file.name,
+                        type: file.type,
+                        blob: file,
+                      });
+                    }
+                    await db.outgoing.add({
+                      id: outgoingId,
+                      attachmentIds,
+                      kind: outKind,
+                      classification: outClassification,
+                      unitId: outUnit || undefined,
+                      subject,
+                      recipient,
+                      status: "Draf",
+                      number: "",
+                      incomingId: incoming || undefined,
+                      createdAt: now(),
+                    });
+                  },
+                );
+                setOutFiles([]);
                 setOpen(false);
                 setSubject("");
                 setRecipient("");
@@ -173,13 +323,33 @@ export function Agenda() {
   const allTasks = useLiveQuery(() => db.tasks.toArray()) || [];
   const dispositions = useLiveQuery(() => db.dispositions.toArray()) || [];
   const tasks = allTasks.filter(
-    (t) => !dispositions.find((d) => d.id === t.dispositionId)?.cancelled,
+    (t) =>
+      !dispositions.find((d) => d.id === t.dispositionId)?.cancelled &&
+      t.status !== "Dibatalkan",
   );
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(today());
   const [location, setLocation] = useState("");
   const [calendar, setCalendar] = useState(false);
+  const letters = useLiveQuery(() => db.letters.toArray()) || [];
+  const users = useLiveQuery(() => db.users.toArray()) || [];
+  const [letterId, setLetterId] = useState("");
+  const [pic, setPic] = useState("");
+  const [start, setStart] = useState("08:00");
+  const [end, setEnd] = useState("09:00");
+  const [period, setPeriod] = useState("semua");
+  const weekEnd = new Date(
+    new Date(today() + "T00:00Z").getTime() + 6 * 86400000,
+  )
+    .toISOString()
+    .slice(0, 10);
+  const visibleEvents = events.filter(
+    (e) =>
+      period === "semua" ||
+      (period === "hari" && e.date === today()) ||
+      (period === "minggu" && e.date >= today() && e.date <= weekEnd),
+  );
   return (
     <>
       <div className="page-heading">
@@ -194,19 +364,34 @@ export function Agenda() {
           + Tambah kegiatan
         </button>
       </div>
+      <div className="toolbar">
+        <button onClick={() => window.print()}>Cetak agenda</button>
+        <Field label="Periode kegiatan">
+          <select value={period} onChange={(e) => setPeriod(e.target.value)}>
+            <option value="semua">Semua kegiatan</option>
+            <option value="hari">Hari ini</option>
+            <option value="minggu">7 hari mulai hari ini</option>
+          </select>
+        </Field>
+      </div>
       <button onClick={() => setCalendar(!calendar)}>
         {calendar ? "Tampilan daftar" : "Tampilan kalender"}
       </button>
       {calendar ? (
-        <Calendar events={events} tasks={tasks} />
+        <Calendar events={visibleEvents} tasks={tasks} />
       ) : (
         <div className="task-grid">
-          {events.map((e) => (
+          {visibleEvents.map((e) => (
             <article className="panel" key={e.id}>
               <Badge>Kegiatan</Badge>
               <h2>{e.title}</h2>
               <p>
                 {dateLabel(e.date)} · {e.location}
+              </p>
+              <p>
+                {e.start || "—"} – {e.end || "—"} · PIC:{" "}
+                {users.find((u) => u.id === e.userId)?.name ||
+                  "Belum ditetapkan"}
               </p>
               {e.letterId && (
                 <Link to={`/surat-masuk/${e.letterId}`}>Buka surat</Link>
@@ -214,7 +399,7 @@ export function Agenda() {
             </article>
           ))}
           {tasks
-            .filter((t) => t.status !== "Selesai")
+            .filter((t) => !["Selesai", "Dibatalkan"].includes(t.status))
             .map((t) => (
               <Link
                 to={`/surat-masuk/${t.letterId}`}
@@ -242,6 +427,47 @@ export function Agenda() {
               onChange={(e) => setDate(e.target.value)}
             />
           </Field>
+          <div className="grid2">
+            <Field label="Waktu mulai">
+              <input
+                type="time"
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+              />
+            </Field>
+            <Field label="Waktu selesai">
+              <input
+                type="time"
+                value={end}
+                onChange={(e) => setEnd(e.target.value)}
+              />
+            </Field>
+          </div>
+          <Field label="Penanggung jawab">
+            <select value={pic} onChange={(e) => setPic(e.target.value)}>
+              <option value="">Belum ditetapkan</option>
+              {users
+                .filter((u) => u.active)
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+            </select>
+          </Field>
+          <Field label="Surat terkait">
+            <select
+              value={letterId}
+              onChange={(e) => setLetterId(e.target.value)}
+            >
+              <option value="">Tidak terkait surat</option>
+              {letters.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.subject}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="Lokasi">
             <input
               value={location}
@@ -249,11 +475,20 @@ export function Agenda() {
             />
           </Field>
           <button
-            disabled={!title.trim() || !date}
+            disabled={!title.trim() || !date || !start || !end || end <= start}
             className="primary"
             onClick={() =>
               run(async () => {
-                await db.events.add({ id: id(), title, date, location });
+                await db.events.add({
+                  id: id(),
+                  title,
+                  date,
+                  location,
+                  start,
+                  end,
+                  userId: pic || undefined,
+                  letterId: letterId || undefined,
+                });
                 setOpen(false);
                 setTitle("");
               }, "Kegiatan agenda disimpan.")
@@ -326,6 +561,7 @@ export function Master() {
           </tbody>
         </table>
       </section>
+      <AdvancedMaster />
       {edit && (
         <Modal title="Data unit / jabatan" onClose={() => setEdit(undefined)}>
           <Field label="Nama *">
@@ -416,7 +652,7 @@ export function Settings() {
   const { user, run } = useApp();
   const settings = useLiveQuery(() => db.settings.get("main"));
   const [draft, setDraft] = useState<AppSettings>();
-  const [replace, setReplace] = useState(false);
+
   const [confirmReset, setConfirmReset] = useState("");
   const data = draft || settings;
   if (!data) return <Empty text="Memuat pengaturan…" />;
@@ -434,6 +670,35 @@ export function Settings() {
       </div>
       <div className="grid2">
         <section className="panel form-panel">
+          <h2>Identitas rumah sakit & nomor agenda</h2>
+          <Field label="Nama rumah sakit">
+            <input
+              disabled={!admin}
+              value={data.hospital || "RSAU Prof. dr. Abdulrachman Saleh"}
+              onChange={(e) => setDraft({ ...data, hospital: e.target.value })}
+            />
+          </Field>
+          <Field label="Pola nomor agenda (gunakan {seq}, {register}, {year})">
+            <input
+              disabled={!admin}
+              value={data.agendaPattern || "{seq}/{register}/{year}"}
+              onChange={(e) =>
+                setDraft({ ...data, agendaPattern: e.target.value })
+              }
+            />
+          </Field>
+          <Field label="Pengingat cadangan setiap (hari)">
+            <input
+              type="number"
+              min="1"
+              max="365"
+              disabled={!admin}
+              value={data.backupDays || 7}
+              onChange={(e) =>
+                setDraft({ ...data, backupDays: Number(e.target.value) })
+              }
+            />
+          </Field>
           <h2>Identitas pejabat cetak</h2>
           {(
             [
@@ -480,6 +745,20 @@ export function Settings() {
                       "Zona waktu tidak valid. Gunakan contoh Asia/Jakarta.",
                     );
                   }
+                  if (
+                    data.agendaPattern &&
+                    !data.agendaPattern.includes("{seq}")
+                  )
+                    throw Error(
+                      "Pola agenda harus memuat {seq} untuk nomor unik.",
+                    );
+                  if (
+                    data.backupDays !== undefined &&
+                    (!Number.isInteger(data.backupDays) ||
+                      data.backupDays < 1 ||
+                      data.backupDays > 365)
+                  )
+                    throw Error("Interval cadangan harus 1–365 hari.");
                   await db.settings.put(data);
                 }, "Pengaturan cetak disimpan.")
               }
@@ -500,40 +779,15 @@ export function Settings() {
           >
             Ekspor metadata JSON
           </button>
-          {admin && (
+          <Link className="button primary" to="/pusat-data">
+            Buka Pusat Data Lokal untuk ZIP lengkap & pemulihan
+          </Link>
+          {admin && dataMode === "demo" && (
             <>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={replace}
-                  onChange={(e) => setReplace(e.target.checked)}
-                />{" "}
-                Ganti seluruh metadata (bukan gabung)
-              </label>
-              <Field label="Impor JSON tervalidasi">
-                <input
-                  type="file"
-                  accept=".json,application/json"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (
-                      f &&
-                      (!replace ||
-                        confirm(
-                          "Ganti seluruh metadata? Cadangkan terlebih dahulu.",
-                        ))
-                    )
-                      void run(
-                        () => importBackup(f, replace),
-                        "Metadata berhasil diimpor.",
-                      );
-                  }}
-                />
-              </Field>
-              <hr />
-              <h2>Reset data demo</h2>
+              <h2>Reset data contoh terpisah</h2>
               <p>
-                Semua surat, lampiran, dan riwayat di browser ini akan dihapus.
+                Hanya database contoh yang direset. Database pengguna tetap
+                utuh.
               </p>
               <Field label="Ketik RESET untuk konfirmasi">
                 <input
@@ -550,9 +804,9 @@ export function Settings() {
                       for (const t of db.tables) await t.clear();
                     });
                     await seed();
-                    localStorage.removeItem("rsas-letter-draft");
+                    await ensureCatalogs();
                     setConfirmReset("");
-                  }, "Data demo direset.")
+                  }, "Data contoh terpisah direset.")
                 }
               >
                 Hapus & buat ulang data demo
@@ -581,7 +835,9 @@ export function Reports() {
   const [to, setTo] = useState(today());
   const [kind, setKind] = useState("Surat masuk");
   const active = tasks.filter(
-    (t) => !ds.find((d) => d.id === t.dispositionId)?.cancelled,
+    (t) =>
+      !ds.find((d) => d.id === t.dispositionId)?.cancelled &&
+      t.status !== "Dibatalkan",
   );
   const rows: Record<string, string>[] =
     kind === "Surat masuk"
@@ -627,7 +883,8 @@ export function Reports() {
                   t.createdAt.slice(0, 10) >= from &&
                   t.createdAt.slice(0, 10) <= to &&
                   (kind !== "Tugas terlambat" ||
-                    (t.deadline < today() && t.status !== "Selesai")),
+                    (t.deadline < today() &&
+                      !["Selesai", "Dibatalkan"].includes(t.status))),
               )
               .map((t) => ({
                 Unit: t.unitName,
@@ -638,8 +895,7 @@ export function Reports() {
   const csv = () => {
     if (!rows.length) return;
     const keys = Object.keys(rows[0]);
-    const quote = (s: string) =>
-      '"' + (/^[=+@\-\t\r]/.test(s) ? "'" : "") + s.replaceAll('"', '""') + '"';
+    const quote = csvCell;
     download(
       new Blob(
         [

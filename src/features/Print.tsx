@@ -41,7 +41,7 @@ export function Print() {
           <div className="print-header">
             PUSAT KESEHATAN TNI ANGKATAN UDARA
             <br />
-            RSAU Prof. dr. Abdulrachman Saleh
+            {settings?.hospital || "RSAU Prof. dr. Abdulrachman Saleh"}
           </div>
           <h1>LEMBAR DISPOSISI</h1>
           <p className="demo-stamp">CONTOH/DEMO</p>

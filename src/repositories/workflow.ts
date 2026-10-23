@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { db } from "../storage/db";
 import type {
   IncomingLetter,
@@ -24,17 +25,49 @@ export async function register(
   letter: IncomingLetter,
   files: File[],
   author: string,
+  autoAgenda = false,
 ) {
   await db.transaction(
     "rw",
-    [db.letters, db.attachments, db.activities],
+    [db.letters, db.attachments, db.activities, db.sequences, db.settings],
     async () => {
+      const year = letter.received.slice(0, 4),
+        register = letter.register || "SM";
+      letter.year = year;
+      letter.register = register;
+      letter.revision = 1;
+      letter.updatedAt = now();
+      if (autoAgenda) {
+        const key = `${year}:${register}`;
+        const sequence = await db.sequences.get(key);
+        const existing = await db.letters
+          .filter(
+            (l) =>
+              l.received.slice(0, 4) === year &&
+              (l.register || "SM") === register,
+          )
+          .toArray();
+        const next =
+          Math.max(
+            sequence?.value || 0,
+            ...existing.map((l) => parseInt(l.agenda) || 0),
+          ) + 1;
+        const pattern =
+          (await db.settings.get("main"))?.agendaPattern ||
+          "{seq}/{register}/{year}";
+        letter.agenda = pattern
+          .replaceAll("{seq}", String(next).padStart(4, "0"))
+          .replaceAll("{register}", register)
+          .replaceAll("{year}", year);
+        await db.sequences.put({ id: key, value: next });
+      }
       if (
         await db.letters
           .filter(
             (l) =>
               l.agenda === letter.agenda &&
-              l.received.slice(0, 4) === letter.received.slice(0, 4),
+              l.received.slice(0, 4) === letter.received.slice(0, 4) &&
+              (l.register || "SM") === register,
           )
           .count()
       )
@@ -62,7 +95,9 @@ export async function aggregate(letterId: string) {
       .filter((d) => !d.cancelled)
       .map((d) => d.id),
   );
-  const tasks = allTasks.filter((t) => active.has(t.dispositionId));
+  const tasks = allTasks.filter(
+    (t) => active.has(t.dispositionId) && t.status !== "Dibatalkan",
+  );
   const letter = await db.letters.get(letterId);
   if (letter && letter.status !== "Diarsipkan" && tasks.length)
     await db.letters.update(letterId, {
@@ -83,12 +118,39 @@ export async function issue(d: Disposition, author: string) {
         throw Error("Surat tidak tersedia untuk disposisi.");
       if (!d.recipients.some((r) => r.kind !== "Tembusan"))
         throw Error("Pilih minimal satu penerima wajib.");
+      if (!d.instructions.length) throw Error("Pilih instruksi disposisi.");
+      if (
+        new Set(d.recipients.map((r) => r.unitId)).size !== d.recipients.length
+      )
+        throw Error(
+          "Penerima unit tidak boleh ganda atau mempunyai peran bertentangan.",
+        );
+      if (
+        !z.iso.date().safeParse(d.deadline).success ||
+        d.recipients.some((r) => !z.iso.date().safeParse(r.deadline).success)
+      )
+        throw Error("Tenggat disposisi tidak valid.");
+      if (d.parentId) {
+        const parent = await db.dispositions.get(d.parentId);
+        if (
+          !parent ||
+          parent.letterId !== d.letterId ||
+          parent.cancelled ||
+          d.parentId === d.id
+        )
+          throw Error("Disposisi induk tidak valid.");
+      }
       if (d.revisionOf) {
         if (!d.reason?.trim()) throw Error("Alasan revisi wajib diisi.");
         const old = await db.dispositions.get(d.revisionOf);
-        if (!old || old.cancelled) throw Error("Disposisi lama tidak aktif.");
+        if (!old || old.cancelled || old.letterId !== d.letterId)
+          throw Error("Disposisi lama tidak aktif.");
         await db.dispositions.update(old.id, {
           cancelled: true,
+        });
+        await db.tasks.where({ dispositionId: old.id }).modify((t) => {
+          t.previousStatus = t.status;
+          t.status = "Dibatalkan";
         }); /* Previous tasks retained as historical obligations of the superseded disposition. */
       }
       await db.dispositions.add(d);
@@ -174,6 +236,8 @@ export async function taskAction(
         status = "Diproses";
       }
       if (action === "submit") {
+        if (!z.iso.date().safeParse(report?.date).success)
+          throw Error("Tanggal laporan tidak valid.");
         if (
           !["Diterima", "Diproses", "Perlu perbaikan"].includes(status) ||
           !report?.result.trim() ||
@@ -220,7 +284,9 @@ export async function archive(letterId: string, author: string) {
           .map((d) => d.id),
       );
       const open = (await db.tasks.where({ letterId }).toArray()).some(
-        (t) => active.has(t.dispositionId) && t.status !== "Selesai",
+        (t) =>
+          active.has(t.dispositionId) &&
+          !["Selesai", "Dibatalkan"].includes(t.status),
       );
       if (l?.status !== "Selesai" || open)
         throw Error(
@@ -261,7 +327,7 @@ export async function delegate(task: Task, unitId: string, author: string) {
   });
 }
 export const overdue = (t: Task) =>
-  t.deadline < today() && t.status !== "Selesai";
+  t.deadline < today() && !["Selesai", "Dibatalkan"].includes(t.status);
 export async function cancelDisposition(
   dispositionId: string,
   reason: string,
@@ -274,6 +340,10 @@ export async function cancelDisposition(
     async () => {
       const d = await db.dispositions.get(dispositionId);
       if (!d || d.cancelled) throw Error("Disposisi tidak aktif.");
+      await db.tasks.where({ dispositionId }).modify((t) => {
+        t.previousStatus = t.status;
+        t.status = "Dibatalkan";
+      });
       await db.dispositions.update(dispositionId, { cancelled: true, reason });
       const others = (
         await db.dispositions.where({ letterId: d.letterId }).toArray()

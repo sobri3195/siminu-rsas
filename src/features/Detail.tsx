@@ -10,6 +10,9 @@ import {
   ZoomIn,
 } from "lucide-react";
 import { db } from "../storage/db";
+import { LetterEditor } from "./LetterEditor";
+import { toggleFavorite } from "../repositories/letters";
+import { useUnsavedChanges } from "../app/unsaved";
 import { useApp } from "../app/context";
 import {
   archive,
@@ -60,7 +63,9 @@ export function Preview({ file }: { file: Attachment }) {
         </button>
       </div>
       <div className="document-preview">
-        {file.type === "application/pdf" ? (
+        {!url ? (
+          <p>Menyiapkan pratinjau berkas lokal…</p>
+        ) : file.type === "application/pdf" ? (
           <object
             data={url}
             type="application/pdf"
@@ -109,6 +114,8 @@ export function Detail() {
     useLiveQuery(() => db.comments.where({ letterId: lid }).toArray(), [lid]) ||
     [];
   const [tab, setTab] = useState("Ringkasan");
+  const [edit, setEdit] = useState<"edit" | "cancel">();
+  const [fileId, setFileId] = useState("");
   const [disposition, setDisposition] = useState<boolean | Disposition>(false);
   const [comment, setComment] = useState("");
   const [cancel, setCancel] = useState("");
@@ -143,10 +150,57 @@ export function Detail() {
           <Printer size={18} /> Cetak disposisi
         </Link>
       </div>
+      <div className="toolbar">
+        <button
+          onClick={() => run(() => toggleFavorite(lid), "Favorit diperbarui.")}
+        >
+          {letter.favorite ? "★ Hapus favorit" : "☆ Pin / favorit"}
+        </button>
+        <Link className="button" to={`/cetak-detail/${lid}`}>
+          Cetak detail surat
+        </Link>
+        {canRegister(user.role) && (
+          <>
+            <button onClick={() => setEdit("edit")}>Koreksi metadata</button>
+            {letter.status !== "Diarsipkan" && (
+              <button className="danger" onClick={() => setEdit("cancel")}>
+                Tutup dengan alasan
+              </button>
+            )}
+          </>
+        )}
+      </div>
+      {edit && (
+        <LetterEditor
+          letter={letter}
+          cancel={edit === "cancel"}
+          onClose={() => setEdit(undefined)}
+        />
+      )}
       <div className="detail-grid">
         <section className="panel">
+          {files.length > 1 && (
+            <Field label="Dokumen untuk pratinjau">
+              <select
+                value={fileId || letter.attachmentIds[0] || files[0]?.id}
+                onChange={(e) => setFileId(e.target.value)}
+              >
+                {files.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           {files[0] ? (
-            <Preview file={files[0]} />
+            <Preview
+              file={
+                files.find(
+                  (f) => f.id === (fileId || letter.attachmentIds[0]),
+                ) || files[0]
+              }
+            />
           ) : (
             <Empty text="Belum ada dokumen utama." />
           )}
@@ -343,6 +397,18 @@ export function Detail() {
               .map((l) => (
                 <div className="timeline" key={l.id}>
                   <strong>{l.text}</strong>
+                  {l.before !== undefined && (
+                    <details>
+                      <summary>Lihat data sebelum / sesudah</summary>
+                      <pre>
+                        {JSON.stringify(
+                          { sebelum: l.before, sesudah: l.after },
+                          null,
+                          2,
+                        )}
+                      </pre>
+                    </details>
+                  )}
                   <small>
                     {l.author} · {timestampLabel(l.createdAt)}
                   </small>
@@ -395,6 +461,11 @@ export function DispositionForm({
   const { user, run } = useApp();
   const units = useLiveQuery(() => db.units.orderBy("id").toArray()) || [];
   const settings = useLiveQuery(() => db.settings.get("main"));
+  const instructionMaster =
+    useLiveQuery(() =>
+      db.catalogs.where({ category: "instruction" }).toArray(),
+    ) || [];
+  const positions = useLiveQuery(() => db.positions.toArray()) || [];
   const [search, setSearch] = useState("");
   const [recipients, setRecipients] = useState<DispositionRecipient[]>(
     previous?.recipients || [],
@@ -407,6 +478,13 @@ export function DispositionForm({
   const [review, setReview] = useState(true);
   const [reason, setReason] = useState("");
   const [step, setStep] = useState(1);
+  const [parentId, setParentId] = useState(previous?.parentId || "");
+  const parents =
+    useLiveQuery(
+      () => db.dispositions.where({ letterId }).toArray(),
+      [letterId],
+    ) || [];
+  useUnsavedChanges(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [eventTitle, setEventTitle] = useState("");
@@ -429,6 +507,7 @@ export function DispositionForm({
         review,
         createdAt: now(),
         revisionOf: previous?.id,
+        parentId: parentId || undefined,
         reason,
       };
       await db.transaction("rw", db.tables, async () => {
@@ -466,6 +545,21 @@ export function DispositionForm({
       )}
       {step === 1 ? (
         <>
+          <Field label="Disposisi induk (opsional)">
+            <select
+              value={parentId}
+              onChange={(e) => setParentId(e.target.value)}
+            >
+              <option value="">Disposisi utama</option>
+              {parents
+                .filter((d) => !d.cancelled && d.id !== previous?.id)
+                .map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.giver} · {dateLabel(d.createdAt)}
+                  </option>
+                ))}
+            </select>
+          </Field>
           <p>
             Pemberi: <strong>{user.name}</strong>
           </p>
@@ -489,7 +583,13 @@ export function DispositionForm({
               .filter(
                 (u) =>
                   u.active &&
-                  u.name.toLowerCase().includes(search.toLowerCase()),
+                  (u.name.toLowerCase().includes(search.toLowerCase()) ||
+                    positions.some(
+                      (p) =>
+                        p.unitId === u.id &&
+                        p.active !== false &&
+                        p.name.toLowerCase().includes(search.toLowerCase()),
+                    )),
               )
               .sort((a, b) => a.order - b.order)
               .map((u) => {
@@ -580,7 +680,10 @@ export function DispositionForm({
           <h3>Instruksi umum</h3>
           <div className="check-grid">
             {[
-              ...instructions,
+              ...instructionMaster
+                .filter((c) => c.active)
+                .sort((a, b) => a.order - b.order)
+                .map((c) => c.name),
               ...(settings?.extraInstructions
                 .split(",")
                 .map((s) => s.trim())
@@ -778,9 +881,14 @@ export function TaskCard({ task: t }: { task: Task }) {
     <article className="task-card">
       <div className="row">
         <strong>{t.unitName}</strong>
-        <Badge>{disposition?.cancelled ? "Riwayat disposisi" : t.status}</Badge>
+        <Badge>
+          {disposition?.cancelled ? "Dibatalkan · Riwayat disposisi" : t.status}
+        </Badge>
       </div>
       <p>{t.instruction}</p>
+      {t.previousStatus && (
+        <small>Status sebelum pembatalan: {t.previousStatus}</small>
+      )}
       <small>
         Tenggat {dateLabel(t.deadline)}
         {t.parentId ? " · Tugas turunan" : ""}

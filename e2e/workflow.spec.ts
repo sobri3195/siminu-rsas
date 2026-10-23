@@ -1,4 +1,9 @@
 import { test, expect } from "@playwright/test";
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem("rsas-data-mode", "demo"),
+  );
+});
 test("registrasi → disposisi multiunit → hasil → pemeriksaan → arsip, persistensi, mobile dan cetak", async ({
   page,
 }) => {
@@ -183,8 +188,8 @@ test("modul pendukung, filter dashboard, PDF contoh, kalender, master dan lapora
     "Terbitkan nomor",
   ])
     await row.getByRole("button", { name, exact: true }).click();
-  page.once("dialog", (d) => d.accept());
   await row.getByRole("button", { name: "Catat pengiriman & arsip" }).click();
+  await page.getByRole("button", { name: "Simpan pengiriman & arsip" }).click();
   await expect(row.getByText("Diarsipkan", { exact: true })).toBeVisible();
   await page.goto("/laporan");
   await page.getByLabel("Jenis laporan").selectOption("Tugas terlambat");
@@ -204,7 +209,7 @@ test("modul pendukung, filter dashboard, PDF contoh, kalender, master dan lapora
   ).toBeVisible();
   await page.evaluate(async () => {
     await new Promise<void>((resolve, reject) => {
-      const request = indexedDB.open("siminu-rsas-v1");
+      const request = indexedDB.open("siminu-rsas-demo-v2");
       request.onsuccess = () => {
         const database = request.result;
         const tx = database.transaction("dispositions", "readwrite");

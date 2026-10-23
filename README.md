@@ -1,10 +1,10 @@
 # SIMINU RSAS
 
-Frontend demo Sistem Informasi Manajemen Administrasi Umum RSAU Prof. dr. Abdulrachman Saleh. Seluruh nama dan dokumen contoh fiktif; tidak memuat data pasien. Monogram RSAS bukan lambang resmi.
+Sistem Informasi Manajemen Administrasi Umum RSAU Prof. dr. Abdulrachman Saleh. Frontend React + Vite + TypeScript untuk uji satu perangkat, tanpa backend, API key, CDN fungsi utama, atau layanan berbayar. Tema dan alur aplikasi sebelumnya dipertahankan. Lihat [inventaris perubahan](docs/INVENTORY.md).
 
-## Menjalankan
+## Menjalankan dan memeriksa
 
-Node.js 22.12+ (divalidasi pada Node 24), npm:
+Node.js 22.12+; divalidasi dengan Node 24 dan Chromium Linux.
 
 ```sh
 npm ci
@@ -16,31 +16,50 @@ npm run preview
 npm run test:e2e
 ```
 
-React + Vite + TypeScript, React Router, Tailwind CSS, Radix Dialog, React Hook Form + Zod, Dexie, Recharts, dan Lucide. Lockfile disertakan. Tidak membutuhkan backend, API key, atau layanan berbayar.
+Playwright membangun aplikasi dan menjalankan preview produksi. Chromium sistem `/usr/bin/chromium` digunakan bila tersedia; pada mesin lain jalankan `npx playwright install chromium`. Berkas hasil browser dan cetak ditulis ke `test-results/`, tidak masuk Git. `npm run dev` bukan bukti offline berfungsi.
 
-## Demo alur utama
+## PWA, pemasangan dan pembaruan
 
-1. Pilih **Petugas Urtu/Administrasi** di kanan atas. Registrasi surat melalui tiga langkah, unggah PDF/gambar, kemudian ajukan ke pimpinan dari detail surat.
-2. Pilih **Kepala RSAU**, buka surat dan buat disposisi. Pilih KA SIMRS dan KA URTU sebagai penerima wajib, unit lain sebagai tembusan. Tandai pemeriksaan hasil, periksa ringkasan, lalu terbitkan.
-3. Pilih **Kepala Unit** untuk tugas KA SIMRS, atau **Pelaksana** untuk tugas KA URTU. Konfirmasi terima, tambah progres, dan kirim laporan hasil. Admin dapat menguji seluruh tugas.
-4. Kepala RSAU menerima hasil atau mengembalikannya dengan alasan. Surat baru selesai jika seluruh tugas wajib aktif termasuk turunan selesai. Tembusan tidak membuat tugas. Diskusi tidak menyelesaikan tugas.
-5. Petugas mengarsipkan surat yang selesai. Cetak lembar disposisi melalui detail; gunakan A4 dan Simpan sebagai PDF di browser.
-6. Reload: metadata dan Blob tetap tersedia pada browser yang sama. Seed tidak dijalankan ulang jika pengaturan sudah ada.
+Kunjungan pertama membutuhkan internet untuk mengunduh JavaScript, CSS, ikon, manifest dan app shell lokal. Tunggu indikator **Siap digunakan offline**. Indikator ini memerlukan service worker aktif dan aset penting tersedia dalam Cache Storage. Selanjutnya deep link React Router, metadata dan Blob lampiran dapat dibuka pada browser/origin yang sama saat offline. Halaman bantuan pemuatan dan fallback HTML tersedia jika skrip belum berhasil dimuat; kunjungan pertama ketika perangkat sudah offline tetap membutuhkan koneksi.
 
-Data awal: 32 surat masuk, 10 surat keluar, disposisi multiunit, beragam status tugas, dan PDF contoh nyata. Master data menyimpan unit, posisi, serta pengguna terpisah. Label unit mengikuti transkripsi pada spesifikasi, dapat dikoreksi; ini bukan penetapan struktur RSAS terkini. Delegasi dibatasi ke bawahan aktif dan menjaga hubungan induk. Revisi menyimpan disposisi dan tugas lama sebagai riwayat.
+Gunakan menu **Install app / Pasang aplikasi** browser jika tersedia. Pemasangan tidak wajib dan dukungannya berbeda antarbrowser. Service worker membutuhkan HTTPS atau localhost yang dipercaya. Aplikasi menampilkan Online/Offline dan pemberitahuan versi baru. Tombol pembaruan menolak reload saat ada formulir belum disimpan; simpan/tutup formulir dahulu. Draf metadata registrasi tetap tersimpan, tetapi berkas yang belum disimpan perlu dipilih ulang.
 
-## Deployment Vercel
+Cache Storage hanya memuat aset aplikasi. Surat, disposisi, tugas dan lampiran berada pada IndexedDB. Tidak ada sinkronisasi otomatis antarperangkat atau antarbrowser.
 
-Import repository, pilih framework Vite, build `npm run build`, output `dist`. `vercel.json` menyediakan SPA fallback untuk URL detail dan mempertahankan `/assets/`. Konfigurasi ini belum berarti deployment telah dilakukan.
+## Data lama dan mode uji
 
-## Penyimpanan dan batasan
+Database pengguna tetap bernama `siminu-rsas-v1`; namanya dipertahankan meskipun skemanya dimigrasikan ke versi 2. Migrasi menambahkan revisi surat, kunci register/tahun, sequence transaksi, kamus master, cadangan pemulihan, serta menandai tugas disposisi yang dibatalkan. Metadata dan byte lampiran lama tidak direset. Koneksi ditutup saat upgrade membutuhkan penutupan tab lain.
 
-IndexedDB pada origin/browser ini menyimpan metadata dan Blob, melalui lapisan `repositories/`. Backup JSON hanya metadata, tanpa isi lampiran. Impor divalidasi dengan Zod, mendukung gabung atau ganti dengan konfirmasi. Ekspor berkas asli terpisah sebelum memindahkan perangkat. Menghapus data situs menghapus data aplikasi. Kegagalan penyimpanan ditampilkan sebagai error, bukan sukses.
+**Uji Coba Sistem** menyediakan pilihan data lokal pengguna dan data contoh. Data contoh memakai database terpisah `siminu-rsas-demo-v2` berisi 32 surat masuk, 10 surat keluar, PDF fiktif dan berbagai status. Database lokal baru berisi master awal tanpa surat contoh. Database yang sudah berisi data tidak di-seed ulang. Reset contoh di Pengaturan hanya tersedia pada mode contoh dan tidak menghapus database pengguna.
 
-Pemilihan peran adalah simulasi, bukan autentikasi. Pembatasan frontend bukan kontrol keamanan. Riwayat lokal bukan audit tahan perubahan. Notifikasi hanya dalam aplikasi. Tidak ada integrasi TNI AU, email, WhatsApp, OCR, tanda tangan elektronik tersertifikasi, stempel, atau tanda tangan palsu. Surat keluar adalah pencatatan metadata, bukan editor naskah atau layanan pengiriman.
+Checklist terpandu memakai surat yang dipilih. Status dibedakan menjadi Terverifikasi oleh aplikasi, Dikonfirmasi manual pengguna, Belum diuji, dan Gagal. Pemeriksaan cetak fisik atau tindakan offline menyeluruh tidak otomatis dianggap lulus. Menu Bantuan menjelaskan registrasi, disposisi, pengiriman hasil, cadangan, dan offline.
 
-Aset screenshot SIM MINU dan Format Disposisi.pdf tidak tersedia dalam unggahan ini. Cetak disusun dari field/transkripsi spesifikasi, belum diverifikasi terhadap PDF asli. Isi panjang dapat berlanjut ke halaman berikutnya; verifikasi printer/browser target sebelum pemakaian resmi. Identitas pejabat cetak kosong sampai diisi melalui Pengaturan.
+## Alur surat
 
-## Verifikasi
+Petugas meregistrasi surat, mengunggah berkas, lalu mengajukan ke pimpinan. Kepala RSAU menetapkan penerima utama, pendukung, tembusan, instruksi dan tenggat. Penerima mengonfirmasi terima, menambah progres, dan mengirim laporan hasil/bukti. Hasil dapat dikembalikan dengan alasan. Surat tetap terbuka sampai semua tugas wajib aktif selesai; tembusan, komentar “siap”, dan tugas dibatalkan tidak menambah pembagi penyelesaian.
 
-`npm test` menguji alur dua penerima, pemeriksaan/perbaikan hasil, tembusan, progres “siap”, agenda unik, larangan arsip dini, hierarki delegasi, riwayat revisi/unit nonaktif, seed idempoten, serta persistensi metadata dan PDF setelah database dibuka ulang. Build dan typecheck wajib dijalankan. Uji Playwright Chromium menjalankan alur utama melalui UI, memeriksa persistensi lampiran setelah reload dan URL detail langsung, navigasi 360 px, serta menghasilkan PDF cetak A4 (isi normal: satu halaman; catatan 180 baris: empat halaman dengan penanda akhir dan catatan kaki tetap tersedia). Gunakan `npx playwright install chromium` jika Chromium sistem tidak tersedia. Deployment Vercel dan kecocokan dengan PDF formulir resmi belum diverifikasi.
+Revisi/pembatalan disposisi dan koreksi metadata membutuhkan alasan. Koreksi menyimpan sebelum/sesudah dan revisi saat formulir dibuka; edit usang dari tab lain ditolak sambil menjaga input. Nomor agenda otomatis dialokasikan dalam transaksi berdasarkan tahun/register. Nomor yang dikoreksi manual tetap diperiksa keunikannya. Tidak ada penghapusan permanen untuk surat yang diproses; penutupan beralasan mempertahankan tugas dan riwayat.
+
+Agenda mencatat waktu, PIC, lokasi dan surat terkait. Pengingat dihitung saat aplikasi dibuka/aktif, bukan dijamin saat browser tertutup. Surat keluar mencatat tahapan, lampiran, tujuan dan tanggal pengiriman; aplikasi tidak mengirim korespondensi. Master yang digunakan dinonaktifkan, bukan dihapus.
+
+## Pusat Data Lokal
+
+**Cadangan lengkap ZIP** berisi metadata JSON, manifest skema 2, versi aplikasi, waktu ekspor, jumlah entitas, nama/ukuran berkas dan SHA-256, serta byte asli semua lampiran surat, bukti hasil dan surat keluar. Tidak mengekspor blob URL. Ekspor metadata JSON lama tetap tersedia sebagai pelengkap tanpa isi berkas.
+
+Pemulihan memeriksa format/versi, struktur ZIP, jumlah/ukuran, ID unik, referensi, hierarki dan checksum sebelum menulis. Batas saat ini: paket 150 MB, per berkas 30 MB, maksimal 2.500 lampiran. Untuk Gabungkan, selesaikan setiap konflik ID dengan pilihan data lokal atau impor. Data yang berubah setelah pratinjau meminta peninjauan ulang. Untuk Ganti seluruh data, paket pemulihan otomatis disimpan dalam transaksi yang sama sebelum mengganti data aktif dan dapat diunduh. Pemulihan atomik menampilkan jumlah berhasil, dilewati dan konflik. Mode database lain tidak disentuh.
+
+Periksa estimasi kapasitas, referensi lampiran hilang, tanggal cadangan terakhir, dan minta persistent storage melalui tindakan pengguna. Browser boleh menolak persistent storage; aplikasi tetap berfungsi. Salin ZIP ke tempat lain secara manual. Cadangan otomatis di browser yang sama tidak melindungi dari penghapusan data situs. Jika quota penuh atau simpan gagal, input dipertahankan dan draf metadata dapat diekspor. Jangan menganggap penyimpanan browser sebagai arsip permanen; mode privat, penghapusan profil/data situs atau tekanan kapasitas dapat menghapusnya.
+
+## Cetak dan deployment
+
+Cetak disposisi, detail surat, agenda dan laporan menggunakan A4/teks hitam dengan penanda CONTOH/DEMO. Identitas rumah sakit/pejabat diambil dari Pengaturan. Tidak ada tanda tangan atau stempel palsu. PDF resmi Format Disposisi.pdf belum disediakan; bandingkan dengan sumber itu sebelum penggunaan resmi. Isi panjang dilanjutkan tanpa memotong teks.
+
+Vercel: framework Vite, build `npm run build`, output `dist`. `vercel.json` menyediakan fallback SPA dan mengecualikan service worker, Workbox, manifest, ikon serta aset statis; `sw.js` menggunakan no-cache. PR ini tidak berarti deployment telah dilakukan. Akses deployment referensi pada sesi ini ditolak proxy, sehingga pengujian HTTPS deployment tidak diklaim.
+
+## Bukti verifikasi dan batasan
+
+Tes repository memeriksa alur multiunit/tembusan/perbaikan, pembatalan/riwayat, delegasi siklik, agenda bersamaan, konflik revisi, migrasi v1→v2 beserta Blob, ZIP/checksum/referensi rusak, pemulihan/konflik/cadangan otomatis dan CSV formula.
+
+Skenario Chromium memakai build produksi: alur surat hingga arsip; offline dengan koneksi browser dimatikan; URL detail langsung, pencarian, surat/lampiran baru, disposisi, progres, cetak dan ZIP saat offline; restart browser dengan profil sama; dua tab; simulasi quota; pemulihan ZIP melalui UI; reset contoh yang menjaga data lokal; pembaruan service worker saat draf terbuka; desktop, tablet, keyboard, dan 360 px. Pengujian cetak menghasilkan PDF normal dan catatan panjang; ini bukan pengujian semua printer fisik.
+
+Belum diverifikasi: Safari/iOS, Firefox, pemasangan PWA oleh pengguna, printer fisik, dan deployment HTTPS versi baru. Pemilihan peran bukan autentikasi, pembatasan frontend bukan kontrol keamanan, dan riwayat lokal bukan audit tahan perubahan. Tidak ada pengiriman email/WhatsApp, notifikasi push, OCR atau tanda tangan elektronik tersertifikasi. Semua data contoh fiktif; monogram RSAS bukan lambang resmi.

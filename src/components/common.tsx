@@ -1,12 +1,20 @@
 import type { ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
+import { X, CheckCircle2, Clock, AlertTriangle, Info } from "lucide-react";
 export function Badge({ children }: { children: ReactNode }) {
   const text = String(children);
+  const Icon = /Selesai|Diarsipkan|Terverifikasi/.test(text)
+    ? CheckCircle2
+    : /Terlambat|perbaikan|Gagal/.test(text)
+      ? AlertTriangle
+      : /Menunggu|Hasil/.test(text)
+        ? Clock
+        : Info;
   return (
     <span
       className={`badge ${/Selesai|Diarsipkan/.test(text) ? "green" : /Terlambat|perbaikan/.test(text) ? "red" : /Menunggu|Segera|Hasil/.test(text) ? "amber" : "blue"}`}
     >
+      <Icon size={12} aria-hidden="true" />
       {children}
     </span>
   );
@@ -47,7 +55,7 @@ export function Empty({
 }) {
   return (
     <div className="empty">
-      <strong>Semua tertata.</strong>
+      <strong>Belum ada data yang dapat ditampilkan.</strong>
       <p>{text}</p>
     </div>
   );
