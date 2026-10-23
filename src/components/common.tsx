@@ -1,4 +1,11 @@
-import type { ReactNode } from "react";
+import {
+  useId,
+  Children,
+  isValidElement,
+  cloneElement,
+  type ReactNode,
+  type ReactElement,
+} from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, CheckCircle2, Clock, AlertTriangle, Info } from "lucide-react";
 export function Badge({ children }: { children: ReactNode }) {
@@ -67,10 +74,19 @@ export function Field({
   label: string;
   children: ReactNode;
 }) {
+  const id = useId();
   return (
-    <label className="field">
-      <span>{label}</span>
-      {children}
-    </label>
+    <div className="field">
+      <label htmlFor={id}>
+        <span>{label}</span>
+      </label>
+      {Children.map(children, (child) =>
+        isValidElement(child) &&
+        typeof child.type === "string" &&
+        ["input", "textarea", "select"].includes(child.type)
+          ? cloneElement(child as ReactElement<{ id?: string }>, { id })
+          : child,
+      )}
+    </div>
   );
 }

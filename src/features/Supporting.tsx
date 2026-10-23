@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Calendar } from "../components/Calendar";
 import { csvCell } from "../utils/csv";
 import { Link, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -104,6 +103,14 @@ export function Outgoing() {
                         </small>
                       );
                     })}
+                    {l.draftId && (
+                      <small>
+                        Naskah versi {l.draftVersion || "—"} ·{" "}
+                        <Link to={"/naskah/" + l.draftId}>
+                          Buka naskah dan riwayat
+                        </Link>
+                      </small>
+                    )}
                     {l.incomingId && (
                       <Link to={`/surat-masuk/${l.incomingId}`}>
                         Surat yang dibalas
@@ -311,190 +318,6 @@ export function Outgoing() {
             }
           >
             Simpan draf
-          </button>
-        </Modal>
-      )}
-    </>
-  );
-}
-export function Agenda() {
-  const { run } = useApp();
-  const events = useLiveQuery(() => db.events.toArray()) || [];
-  const allTasks = useLiveQuery(() => db.tasks.toArray()) || [];
-  const dispositions = useLiveQuery(() => db.dispositions.toArray()) || [];
-  const tasks = allTasks.filter(
-    (t) =>
-      !dispositions.find((d) => d.id === t.dispositionId)?.cancelled &&
-      t.status !== "Dibatalkan",
-  );
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [date, setDate] = useState(today());
-  const [location, setLocation] = useState("");
-  const [calendar, setCalendar] = useState(false);
-  const letters = useLiveQuery(() => db.letters.toArray()) || [];
-  const users = useLiveQuery(() => db.users.toArray()) || [];
-  const [letterId, setLetterId] = useState("");
-  const [pic, setPic] = useState("");
-  const [start, setStart] = useState("08:00");
-  const [end, setEnd] = useState("09:00");
-  const [period, setPeriod] = useState("semua");
-  const weekEnd = new Date(
-    new Date(today() + "T00:00Z").getTime() + 6 * 86400000,
-  )
-    .toISOString()
-    .slice(0, 10);
-  const visibleEvents = events.filter(
-    (e) =>
-      period === "semua" ||
-      (period === "hari" && e.date === today()) ||
-      (period === "minggu" && e.date >= today() && e.date <= weekEnd),
-  );
-  return (
-    <>
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">JADWAL KEGIATAN</p>
-          <h1>Agenda</h1>
-          <p className="muted">
-            Kegiatan dan tenggat tugas ditampilkan sebagai jenis yang berbeda.
-          </p>
-        </div>
-        <button className="primary" onClick={() => setOpen(true)}>
-          + Tambah kegiatan
-        </button>
-      </div>
-      <div className="toolbar">
-        <button onClick={() => window.print()}>Cetak agenda</button>
-        <Field label="Periode kegiatan">
-          <select value={period} onChange={(e) => setPeriod(e.target.value)}>
-            <option value="semua">Semua kegiatan</option>
-            <option value="hari">Hari ini</option>
-            <option value="minggu">7 hari mulai hari ini</option>
-          </select>
-        </Field>
-      </div>
-      <button onClick={() => setCalendar(!calendar)}>
-        {calendar ? "Tampilan daftar" : "Tampilan kalender"}
-      </button>
-      {calendar ? (
-        <Calendar events={visibleEvents} tasks={tasks} />
-      ) : (
-        <div className="task-grid">
-          {visibleEvents.map((e) => (
-            <article className="panel" key={e.id}>
-              <Badge>Kegiatan</Badge>
-              <h2>{e.title}</h2>
-              <p>
-                {dateLabel(e.date)} · {e.location}
-              </p>
-              <p>
-                {e.start || "—"} – {e.end || "—"} · PIC:{" "}
-                {users.find((u) => u.id === e.userId)?.name ||
-                  "Belum ditetapkan"}
-              </p>
-              {e.letterId && (
-                <Link to={`/surat-masuk/${e.letterId}`}>Buka surat</Link>
-              )}
-            </article>
-          ))}
-          {tasks
-            .filter((t) => !["Selesai", "Dibatalkan"].includes(t.status))
-            .map((t) => (
-              <Link
-                to={`/surat-masuk/${t.letterId}`}
-                className="panel"
-                key={t.id}
-              >
-                <Badge>Tenggat tugas</Badge>
-                <h3>{t.unitName}</h3>
-                <p>
-                  {dateLabel(t.deadline)} · {t.instruction}
-                </p>
-              </Link>
-            ))}
-        </div>
-      )}
-      {open && (
-        <Modal title="Tambah kegiatan" onClose={() => setOpen(false)}>
-          <Field label="Nama kegiatan *">
-            <input value={title} onChange={(e) => setTitle(e.target.value)} />
-          </Field>
-          <Field label="Tanggal *">
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </Field>
-          <div className="grid2">
-            <Field label="Waktu mulai">
-              <input
-                type="time"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-              />
-            </Field>
-            <Field label="Waktu selesai">
-              <input
-                type="time"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-              />
-            </Field>
-          </div>
-          <Field label="Penanggung jawab">
-            <select value={pic} onChange={(e) => setPic(e.target.value)}>
-              <option value="">Belum ditetapkan</option>
-              {users
-                .filter((u) => u.active)
-                .map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-            </select>
-          </Field>
-          <Field label="Surat terkait">
-            <select
-              value={letterId}
-              onChange={(e) => setLetterId(e.target.value)}
-            >
-              <option value="">Tidak terkait surat</option>
-              {letters.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.subject}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Lokasi">
-            <input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
-          </Field>
-          <button
-            disabled={!title.trim() || !date || !start || !end || end <= start}
-            className="primary"
-            onClick={() =>
-              run(async () => {
-                await db.events.add({
-                  id: id(),
-                  title,
-                  date,
-                  location,
-                  start,
-                  end,
-                  userId: pic || undefined,
-                  letterId: letterId || undefined,
-                });
-                setOpen(false);
-                setTitle("");
-              }, "Kegiatan agenda disimpan.")
-            }
-          >
-            Konfirmasi & simpan kegiatan
           </button>
         </Modal>
       )}

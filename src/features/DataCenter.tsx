@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { ensureTemplates } from "../repositories/drafts";
 import { db, dataMode } from "../storage/db";
 import { useApp } from "../app/context";
 import { Field, Modal } from "../components/common";
@@ -38,6 +39,8 @@ export function DataCenter() {
       ...(await db.letters.toArray()).flatMap((l) => l.attachmentIds),
       ...(await db.outgoing.toArray()).flatMap((l) => l.attachmentIds || []),
       ...(await db.reports.toArray()).flatMap((r) => r.attachmentIds),
+      ...(await db.minutes.toArray()).flatMap((r) => r.attachmentIds),
+      ...(await db.drafts.toArray()).flatMap((r) => r.attachmentIds),
     ];
     setMissing(ids.filter((id) => !files.has(id)));
   };
@@ -163,9 +166,9 @@ export function DataCenter() {
         <section className="panel">
           <h2>Pulihkan cadangan</h2>
           <p>
-            Validasi format, skema v2, jumlah/ukuran, referensi dan SHA-256
-            dilakukan sebelum database diubah. Batas paket 150 MB, 30 MB per
-            berkas.
+            Validasi format, skema v3 (kompatibel paket v2), jumlah/ukuran,
+            referensi dan SHA-256 dilakukan sebelum database diubah. Batas paket
+            150 MB, 30 MB per berkas.
           </p>
           {user.role === "Admin Sistem" ? (
             <Field label="Pilih cadangan lengkap ZIP">
@@ -277,6 +280,7 @@ export function DataCenter() {
                 return;
               void execute(async () => {
                 const result = await restoreFullBackup(pkg, mode, choices);
+                if (pkg.manifest.schemaVersion === 2) await ensureTemplates();
                 setMessage(
                   `Pemulihan selesai: ${result.restored} berhasil, ${result.skipped} dilewati, ${result.conflicts} konflik ditangani.`,
                 );

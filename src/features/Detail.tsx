@@ -151,6 +151,9 @@ export function Detail() {
         </Link>
       </div>
       <div className="toolbar">
+        <Link className="button" to={`/agenda?source=${lid}`}>
+          Buat agenda dari undangan
+        </Link>
         <button
           onClick={() => run(() => toggleFavorite(lid), "Favorit diperbarui.")}
         >
@@ -845,7 +848,7 @@ export function TaskCard({ task: t }: { task: Task }) {
               attachmentIds.push(aid);
               await db.attachments.add({
                 id: aid,
-                letterId: t.letterId,
+                letterId: t.letterId || t.minutesId || t.id,
                 name: f.name,
                 type: f.type,
                 blob: f,
@@ -894,7 +897,7 @@ export function TaskCard({ task: t }: { task: Task }) {
         {t.parentId ? " · Tugas turunan" : ""}
       </small>
       <Link className="text-link" to={`/surat-masuk/${t.letterId}`}>
-        Buka surat asli →
+        {t.minutesId ? "Buka notulen sumber" : "Buka surat asli"} →
       </Link>
       {progress.map((p) => (
         <p className="callout" key={p.id}>

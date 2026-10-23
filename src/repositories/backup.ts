@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { stage3Schemas } from "./stage3Schemas";
 import { db } from "../storage/db";
 import { download } from "../utils";
 const base = z.object({ id: z.string().min(1) }).passthrough();
@@ -65,6 +66,7 @@ const task = base.extend({
   createdAt: z.iso.datetime(),
 });
 export const schemas = {
+  ...stage3Schemas,
   letters: letter,
   outgoing: base.extend({
     subject: z.string(),

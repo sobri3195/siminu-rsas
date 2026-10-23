@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Search, ArrowRight, FileText } from "lucide-react";
 import { db, dataMode } from "../storage/db";
+import { BulkLetters } from "./BulkLetters";
 import { ArchivedOutgoing } from "./ArchivedOutgoing";
 import { useUnsavedChanges } from "../app/unsaved";
 import { download, now as draftNow } from "../utils";
@@ -42,6 +43,7 @@ export function Letters({
   const reportsData =
     useLiveQuery(() => (archive ? db.reports.toArray() : []), [archive]) || [];
   const { user } = useApp();
+  const [selected, setSelected] = useState<string[]>([]);
   const [params, setParams] = useSearchParams();
   const filterKey = `filters-${dataMode}-${archive ? "archive" : dispositions ? "dispositions" : "incoming"}`;
   useEffect(() => {
@@ -70,12 +72,13 @@ export function Letters({
       (!params.get("from") || l.received >= params.get("from")!) &&
       (!params.get("to") || l.received <= params.get("to")!) &&
       (!params.get("unit") ||
+        l.targetUnitId === params.get("unit") ||
         tasks.some(
           (t) => t.letterId === l.id && t.unitId === params.get("unit"),
         )) &&
       (!params.get("year") || l.received.startsWith(params.get("year")!)) &&
       (!params.get("favorite") || l.favorite) &&
-      `${l.subject} ${l.sender} ${l.number} ${l.agenda} ${l.summary} ${dispositionsData
+      `${l.subject} ${l.sender} ${l.number} ${l.agenda} ${l.summary} ${(l.labels || []).join(" ")} ${dispositionsData
         .filter((d) => d.letterId === l.id)
         .map(
           (d) =>
@@ -138,6 +141,7 @@ export function Letters({
           </Link>
         )}
       </div>
+      <BulkLetters selected={selected} onClear={() => setSelected([])} />
       <section className="panel">
         <div className="toolbar">
           <label className="search">
@@ -294,6 +298,7 @@ export function Letters({
           <table>
             <thead>
               <tr>
+                <th>Sesi pilih</th>
                 <th>Agenda / Tanggal</th>
                 <th>Perihal & pengirim</th>
                 <th>Derajat / Klasifikasi</th>
@@ -305,6 +310,20 @@ export function Letters({
             <tbody>
               {pageRows.map((l) => (
                 <tr key={l.id}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      aria-label={`Pilih surat ${l.agenda}`}
+                      checked={selected.includes(l.id)}
+                      onChange={(e) =>
+                        setSelected(
+                          e.target.checked
+                            ? [...selected, l.id]
+                            : selected.filter((v) => v !== l.id),
+                        )
+                      }
+                    />
+                  </td>
                   <td>
                     <strong>{l.agenda}</strong>
                     <small>{dateLabel(l.received)}</small>

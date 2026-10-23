@@ -59,7 +59,11 @@ export function Calendar({
                     <Link
                       className="calendar-task"
                       key={t.id}
-                      to={`/surat-masuk/${t.letterId}`}
+                      to={
+                        t.minutesId
+                          ? `/notulen/${t.minutesId}`
+                          : `/surat-masuk/${t.letterId}`
+                      }
                     >
                       <small>Tenggat tugas</small>
                       {t.unitName}

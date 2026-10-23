@@ -252,14 +252,19 @@ export function Dashboard() {
                 <Link
                   className="work-row"
                   key={t.id}
-                  to={`/surat-masuk/${t.letterId}`}
+                  to={
+                    t.minutesId
+                      ? `/notulen/${t.minutesId}`
+                      : `/surat-masuk/${t.letterId}`
+                  }
                 >
                   <span className="file-icon">
                     <ClipboardList size={20} />
                   </span>
                   <div>
                     <strong>
-                      {letters.find((l) => l.id === t.letterId)?.subject}
+                      {letters.find((l) => l.id === t.letterId)?.subject ||
+                        t.instruction}
                     </strong>
                     <small>
                       {t.unitName} · {t.instruction}
@@ -282,14 +287,19 @@ export function Dashboard() {
               <Link
                 key={t.id}
                 className="deadline-row"
-                to={`/surat-masuk/${t.letterId}`}
+                to={
+                  t.minutesId
+                    ? `/notulen/${t.minutesId}`
+                    : `/surat-masuk/${t.letterId}`
+                }
               >
                 <span className={overdue(t) ? "deadline red" : "deadline"}>
                   {dateLabel(t.deadline)}
                 </span>
                 <div>
                   <strong>
-                    {letters.find((l) => l.id === t.letterId)?.subject}
+                    {letters.find((l) => l.id === t.letterId)?.subject ||
+                      t.instruction}
                   </strong>
                   <small>{t.unitName}</small>
                 </div>
@@ -376,7 +386,11 @@ export function Dashboard() {
             <Link
               className="activity-row"
               key={l.id}
-              to={`/surat-masuk/${l.letterId}`}
+              to={
+                l.minutesId
+                  ? `/notulen/${l.minutesId}`
+                  : `/surat-masuk/${l.letterId}`
+              }
             >
               <span className="activity-dot" />
               <div>
