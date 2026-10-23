@@ -1,6 +1,12 @@
 import Dexie, { type EntityTable } from "dexie";
 import type * as T from "../types";
 export type AppDatabase = Dexie & {
+  notes: EntityTable<T.ServiceNote, "id">;
+  noteVersions: EntityTable<T.NoteVersion, "id">;
+  noteReviews: EntityTable<T.NoteReview, "id">;
+  noteTemplates: EntityTable<T.NoteTemplate, "id">;
+  noteProfiles: EntityTable<T.NoteProfile, "id">;
+  noteNumbers: EntityTable<T.NoteNumber, "id">;
   letters: EntityTable<T.IncomingLetter, "id">;
   outgoing: EntityTable<T.OutgoingLetter, "id">;
   attachments: EntityTable<T.Attachment, "id">;
@@ -93,6 +99,14 @@ export function createDatabase(name: string): AppDatabase {
     caseFiles: "id",
     searchPages: "id,attachmentId",
     tasks: "id,letterId,dispositionId,unitId,userId,status,minutesId",
+  });
+  db.version(4).stores({
+    notes: "id,status,authorId,updatedAt",
+    noteVersions: "id,noteId,[noteId+version]",
+    noteReviews: "id,noteId",
+    noteTemplates: "id",
+    noteProfiles: "id,unitId",
+    noteNumbers: "id,noteId",
   });
   db.on("blocked", () => {
     if (typeof window !== "undefined")

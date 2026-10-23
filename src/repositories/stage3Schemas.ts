@@ -97,6 +97,7 @@ export const stage3Schemas = {
           "minutes",
           "reports",
           "drafts",
+          "notes",
         ]),
         id: z.string(),
       }),

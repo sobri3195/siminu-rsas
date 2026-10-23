@@ -72,17 +72,17 @@ const journeys = [
     steps: [
       [
         "Pilih template",
-        "/naskah",
-        "Pilih Nota dinas. Template generik tidak boleh disebut format resmi.",
+        "/nota-dinas",
+        "Buat nota dinas dan pilih unit serta template isi. Periksa format RSAS yang dapat diatur; sumber contoh resmi belum disediakan.",
       ],
       [
         "Isi dan simpan",
-        "/naskah",
-        "Isi tujuan, dasar dan isi; draf tersimpan otomatis. DOCX berisi teks yang dapat diedit.",
+        "/nota-dinas",
+        "Isi identitas, beberapa dasar, uraian, penandatangan, dan lampiran. Tunggu indikator Tersimpan. DOCX berisi teks, tabel, dan gambar.",
       ],
       [
         "Pemeriksaan berjenjang",
-        "/naskah",
+        "/nota-dinas",
         "Tambahkan pemeriksa sesuai unit, ajukan, perbaiki jika dikembalikan, lalu persetujuan simulasi dan penomoran.",
       ],
     ],

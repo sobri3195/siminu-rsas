@@ -31,6 +31,7 @@ export function Cases() {
               "minutes",
               "reports",
               "drafts",
+              "notes",
             ] as LinkKind[]
           ).map(async (k) => [k, await db.table(k).toArray()]),
         ),
@@ -110,6 +111,7 @@ export function Cases() {
                     ["minutes", "Notulen"],
                     ["reports", "Bukti / laporan hasil"],
                     ["drafts", "Naskah dinas"],
+                    ["notes", "Nota Dinas"],
                   ].map(([k, n]) => (
                     <option value={k} key={k}>
                       {n}

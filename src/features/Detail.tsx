@@ -151,6 +151,9 @@ export function Detail() {
         </Link>
       </div>
       <div className="toolbar">
+        <Link className="button" to={"/nota-dinas?surat=" + lid}>
+          Buat nota dinas dari surat
+        </Link>
         <Link className="button" to={`/agenda?source=${lid}`}>
           Buat agenda dari undangan
         </Link>

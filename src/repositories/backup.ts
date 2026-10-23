@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { notaSchemas } from "./notaSchemas";
 import { stage3Schemas } from "./stage3Schemas";
 import { db } from "../storage/db";
 import { download } from "../utils";
@@ -67,6 +68,7 @@ const task = base.extend({
 });
 export const schemas = {
   ...stage3Schemas,
+  ...notaSchemas,
   letters: letter,
   outgoing: base.extend({
     subject: z.string(),

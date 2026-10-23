@@ -103,6 +103,14 @@ export function Outgoing() {
                         </small>
                       );
                     })}
+                    {l.noteId && (
+                      <small>
+                        Nota dinas v{l.noteVersion} ·{" "}
+                        <Link to={"/nota-dinas/" + l.noteId}>
+                          Buka nota dan riwayat
+                        </Link>
+                      </small>
+                    )}
                     {l.draftId && (
                       <small>
                         Naskah versi {l.draftVersion || "—"} ·{" "}
@@ -122,7 +130,7 @@ export function Outgoing() {
                     <Badge>{l.status}</Badge>
                   </td>
                   <td>
-                    {idx < 5 && allowed && (
+                    {!l.noteId && idx < 5 && allowed && (
                       <button
                         onClick={() =>
                           run(async () => {

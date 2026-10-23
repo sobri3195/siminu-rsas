@@ -2075,3 +2075,280 @@ mark {
     display: none !important;
   }
 }
+
+/* Nota Dinas: one document tree for screen and print. */
+.nota-columns {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.1fr);
+  gap: 20px;
+  align-items: start;
+}
+.nota-form {
+  min-width: 0;
+}
+.nota-form h2 {
+  margin-top: 24px;
+}
+.nota-preview {
+  overflow: auto;
+  padding: 12px;
+  background: #e7edf1;
+  border-radius: 12px;
+}
+.nota-paper {
+  width: 210mm;
+  min-height: 297mm;
+  padding: var(--nota-top) var(--nota-right) var(--nota-bottom) var(--nota-left);
+  background: white;
+  color: #000;
+  line-height: 1.4;
+  box-shadow: 0 3px 16px #1b354a1c;
+  box-sizing: border-box;
+}
+.nota-paper p {
+  margin: 0 0 8pt;
+  white-space: pre-wrap;
+  text-align: justify;
+  overflow-wrap: anywhere;
+  color: #000;
+}
+.nota-meta-label {
+  display: inline-block;
+  min-width: 30mm;
+}
+.nota-paper table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8pt 0;
+  table-layout: fixed;
+}
+.nota-paper th,
+.nota-paper td {
+  border: 1px solid black;
+  padding: 5pt;
+  color: black;
+  background: white;
+  font: inherit;
+  overflow-wrap: anywhere;
+}
+.nota-paper thead {
+  display: table-header-group;
+}
+.nota-signature {
+  width: 55%;
+  margin: 20pt 0 16pt auto;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.nota-signature p {
+  text-align: center;
+  margin-bottom: 3pt;
+}
+.nota-signature-space {
+  min-height: 22mm;
+}
+.nota-keep {
+  break-after: avoid;
+}
+.nota-list-line {
+  padding-left: 12pt;
+  text-indent: -12pt;
+}
+.nota-attachment-page {
+  break-before: page;
+  page-break-before: always;
+  margin-top: 24px;
+}
+.nota-attachment-heading {
+  white-space: pre-line;
+}
+.nota-paper figure {
+  margin: 12pt 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8pt;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.nota-paper figure img {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+.nota-paper figcaption {
+  text-align: center;
+  white-space: pre-wrap;
+}
+.nota-rich {
+  margin: 18px 0;
+}
+.nota-rich .toolbar {
+  gap: 4px;
+  margin-bottom: 5px;
+}
+.nota-rich .toolbar button {
+  padding: 5px 8px;
+  font-size: 11px;
+}
+.nota-basis {
+  border-left: 2px solid #c7d8e3;
+  padding-left: 10px;
+  margin-bottom: 10px;
+}
+.nota-mobile-tabs {
+  display: none;
+}
+.nota-full .nota-columns {
+  display: block;
+}
+.nota-full .nota-form {
+  display: none;
+}
+.nota-full .nota-paper {
+  margin: auto;
+}
+.nota-diff {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.nota-diff pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 340px;
+  overflow: auto;
+  padding: 12px;
+  background: #f1f5f8;
+  font-size: 12px;
+}
+.nota-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+}
+.nota-workspace details {
+  margin: 12px 0;
+}
+.nota-workspace summary {
+  cursor: pointer;
+}
+.nota-workspace .error-text {
+  color: #a42323;
+}
+@media (max-width: 1000px) {
+  .nota-columns {
+    grid-template-columns: 1fr;
+  }
+  .nota-mobile-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .nota-mobile-tabs [aria-selected="true"] {
+    background: #146a9d;
+    color: white;
+  }
+  .nota-tab-Isi .nota-preview,
+  .nota-tab-Pratinjau .nota-form {
+    display: none;
+  }
+  .nota-full .nota-preview {
+    display: block;
+  }
+  .nota-preview {
+    max-width: 100%;
+  }
+  .nota-diff,
+  .nota-checklist {
+    grid-template-columns: 1fr;
+  }
+}
+@media print {
+  body:has(.nota-workspace) .print-only {
+    display: none !important;
+  }
+  .nota-columns,
+  .nota-full .nota-columns {
+    display: block;
+  }
+  .nota-preview,
+  .nota-tab-Isi .nota-preview {
+    display: block !important;
+    overflow: visible;
+    padding: 0;
+    background: white;
+  }
+  .nota-paper {
+    width: auto;
+    min-height: 0;
+    padding: 0;
+    box-shadow: none;
+    border: 0;
+  }
+  .nota-paper p {
+    orphans: 3;
+    widows: 3;
+  }
+  .nota-paper tr {
+    break-inside: avoid;
+  }
+  .nota-paper figure {
+    display: block;
+    text-align: center;
+  }
+  .nota-paper figure strong,
+  .nota-paper figcaption {
+    display: block;
+    margin: 8pt 0;
+  }
+  .nota-attachment-page {
+    margin-top: 0;
+  }
+  .nota-paper img {
+    print-color-adjust: exact;
+  }
+}
+@media screen {
+  .nota-preview .nota-paper {
+    zoom: var(--nota-zoom, 1);
+  }
+  .nota-attachment-page {
+    border-top: 1px dashed #aaa;
+    padding-top: 16px;
+  }
+}
+@media print {
+  .nota-preview .nota-paper {
+    zoom: 1;
+  }
+  .nota-attachment-page {
+    border: 0;
+    padding-top: 0;
+  }
+}
+.nota-paper {
+  line-height: var(--nota-line, 1.15);
+}
+.nota-paper p {
+  line-height: inherit;
+  margin-bottom: var(--nota-after, 6pt);
+}
+.nota-paper th {
+  font-weight: 700;
+}
+.nota-meta-label {
+  padding-right: 6px;
+}
+.nota-signature p {
+  margin-bottom: 3pt;
+}
+.nota-signature-space {
+  min-height: var(--nota-sign-space, 22mm);
+  margin: 0 !important;
+}
+.nota-attachment-heading {
+  break-after: avoid;
+}

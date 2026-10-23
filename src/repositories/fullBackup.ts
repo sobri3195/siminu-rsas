@@ -3,6 +3,7 @@ import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 import { z } from "zod";
 import { db, type AppDatabase } from "../storage/db";
 import { backupSchema, schemas } from "./backup";
+import { notaSchemas } from "./notaSchemas";
 import { stage3Schemas } from "./stage3Schemas";
 import { id, now } from "../utils";
 const MAX_TOTAL = 150 * 1024 * 1024,
@@ -19,7 +20,7 @@ const fileSchema = z.object({
 });
 const manifestSchema = z.object({
   format: z.literal("siminu-rsas-backup"),
-  schemaVersion: z.union([z.literal(2), z.literal(3)]),
+  schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4)]),
   appVersion: z.string(),
   createdAt: z.iso.datetime(),
   counts: z.record(z.string(), z.number().int().nonnegative()),
@@ -88,8 +89,8 @@ export async function createFullBackup(database: AppDatabase = db) {
   }
   const manifest: PackageManifest = {
     format: "siminu-rsas-backup",
-    schemaVersion: 3,
-    appVersion: "3.0.0",
+    schemaVersion: 4,
+    appVersion: "4.0.0",
     createdAt: now(),
     counts: Object.fromEntries(
       Object.entries(snapshot.tables).map(([k, v]) => [k, v.length]),
@@ -186,10 +187,13 @@ export function validateReferences(
   for (const l of tables.outgoing) {
     ref("letters", l.incomingId as string | undefined);
     ref("drafts", l.draftId as string | undefined);
+    ref("notes", l.noteId as string | undefined);
     for (const aid of (l.attachmentIds as string[] | undefined) || [])
       if (
         !files.has(aid) ||
-        (owners.get(aid) !== l.id && owners.get(aid) !== l.draftId)
+        (owners.get(aid) !== l.id &&
+          owners.get(aid) !== l.draftId &&
+          owners.get(aid) !== l.noteId)
       )
         throw Error(
           `Lampiran surat keluar hilang atau pemilik tidak cocok: ${aid}`,
@@ -200,7 +204,8 @@ export function validateReferences(
       !sets.letters.has(a.letterId) &&
       !sets.outgoing.has(a.letterId) &&
       !sets.minutes.has(a.letterId) &&
-      !sets.drafts.has(a.letterId)
+      !sets.drafts.has(a.letterId) &&
+      !sets.notes.has(a.letterId)
     )
       throw Error("Pemilik lampiran tidak ditemukan.");
   for (const d of tables.dispositions) {
@@ -255,6 +260,151 @@ export function validateReferences(
     ref("drafts", v.draftId);
     ref("users", v.userId);
   }
+  const numberKeys = tables.noteNumbers.map((r) => r.id);
+  if (new Set(numberKeys).size !== numberKeys.length)
+    throw Error("Nomor nota ganda.");
+  const outgoingNumbers = tables.outgoing
+    .filter((r) => r.number)
+    .map((r) => r.number);
+  if (new Set(outgoingNumbers).size !== outgoingNumbers.length)
+    throw Error(
+      "Konflik nomor surat keluar; periksa paket dari perangkat lain.",
+    );
+  const currentNumbers = tables.notes
+    .filter((r) => r.officialNumber)
+    .map((r) => r.officialNumber);
+  if (new Set(currentNumbers).size !== currentNumbers.length)
+    throw Error("Konflik nomor nota dinas antarperangkat.");
+  const noteContentRefs = (
+    c: Metadata["notes"][number]["content"],
+    nid: string,
+  ) => {
+    ref("units", c.unitId);
+    ref("letters", c.letterId);
+    ref("dispositions", c.dispositionId);
+    ref("tasks", c.taskId);
+    const d = tables.dispositions.find((d) => d.id === c.dispositionId),
+      t = tables.tasks.find((t) => t.id === c.taskId);
+    if (d && c.letterId && d.letterId !== c.letterId)
+      throw Error("Hubungan disposisi nota tidak cocok.");
+    if (
+      t &&
+      ((c.letterId && t.letterId !== c.letterId) ||
+        (c.dispositionId && t.dispositionId !== c.dispositionId))
+    )
+      throw Error("Hubungan tugas nota tidak cocok.");
+    if (new Set(c.attachments.map((a) => a.id)).size !== c.attachments.length)
+      throw Error("Lampiran nota ganda.");
+    for (const a of c.attachments)
+      if (!files.has(a.id) || owners.get(a.id) !== nid)
+        throw Error("Lampiran nota hilang atau pemilik tidak cocok.");
+  };
+  for (const n of tables.notes) {
+    ref("users", n.authorId);
+    ref("outgoing", n.outgoingId);
+    if (
+      n.outgoingId &&
+      !tables.outgoing.some(
+        (o) =>
+          o.id === n.outgoingId &&
+          o.noteId === n.id &&
+          o.noteVersion === n.version &&
+          o.number === n.officialNumber,
+      )
+    )
+      throw Error("Sumber Surat Keluar nota tidak cocok.");
+    if (
+      n.reviewIndex > n.reviewerIds.length ||
+      new Set(n.reviewerIds).size !== n.reviewerIds.length
+    )
+      throw Error("Urutan pemeriksaan nota tidak valid.");
+    if (
+      ["Disetujui", "Bernomor", "Tercatat dikirim"].includes(n.status) &&
+      n.approvedVersion !== n.version
+    )
+      throw Error("Tahap nota memerlukan persetujuan versi terkini.");
+    if (
+      ["Bernomor", "Tercatat dikirim"].includes(n.status) &&
+      (!n.officialNumber || !n.content.signer.date)
+    )
+      throw Error("Nota bernomor memerlukan nomor dan tanggal.");
+    if (
+      n.status === "Tercatat dikirim" &&
+      (!n.outgoingId || !n.sentAt || !n.sentVia)
+    )
+      throw Error("Catatan pengiriman nota tidak lengkap.");
+    if (n.status === "Dibatalkan" && !n.cancelledReason?.trim())
+      throw Error("Alasan pembatalan nota hilang.");
+    for (const uid of n.reviewerIds) ref("users", uid);
+    noteContentRefs(n.content, n.id);
+    if (
+      !tables.noteVersions.some(
+        (v) =>
+          v.noteId === n.id &&
+          v.version === n.version &&
+          JSON.stringify(v.content) === JSON.stringify(n.content),
+      )
+    )
+      throw Error("Snapshot nota terkini hilang/tidak cocok.");
+    if (n.approvedVersion !== undefined && n.approvedVersion !== n.version)
+      throw Error("Persetujuan nota merujuk versi lama.");
+    if (
+      n.officialNumber &&
+      !tables.noteNumbers.some(
+        (r) =>
+          r.id === n.officialNumber &&
+          r.noteId === n.id &&
+          r.version === n.version,
+      )
+    )
+      throw Error("Reservasi nomor nota hilang.");
+  }
+  for (const v of tables.noteVersions) {
+    ref("notes", v.noteId);
+    ref("users", v.userId);
+    noteContentRefs(v.content, v.noteId);
+  }
+  for (const r of tables.noteReviews) {
+    ref("notes", r.noteId);
+    ref("users", r.userId);
+    if (
+      !tables.noteVersions.some(
+        (v) => v.noteId === r.noteId && v.version === r.version,
+      )
+    )
+      throw Error("Versi catatan pemeriksaan nota hilang.");
+  }
+  for (const p of tables.noteProfiles) ref("units", p.unitId);
+  for (const r of tables.noteNumbers) {
+    ref("notes", r.noteId);
+    if (
+      !tables.noteVersions.some(
+        (v) =>
+          v.noteId === r.noteId &&
+          v.version === r.version &&
+          v.officialNumber === r.id,
+      )
+    )
+      throw Error("Snapshot nomor nota hilang.");
+    if (
+      tables.outgoing.some(
+        (o) =>
+          o.number === r.id &&
+          (o.noteId !== r.noteId || o.noteVersion !== r.version),
+      )
+    )
+      throw Error("Konflik nomor nota dengan surat keluar lain.");
+  }
+  for (const o of tables.outgoing)
+    if (o.noteId) {
+      const v = tables.noteVersions.find(
+        (v) =>
+          v.noteId === o.noteId &&
+          v.version === o.noteVersion &&
+          v.officialNumber === o.number,
+      );
+      if (!v) throw Error("Sumber/versi surat keluar nota hilang.");
+    }
   for (const m of tables.minutes) {
     ref("events", m.agendaId as string | undefined);
     ref("letters", m.letterId as string | undefined);
@@ -330,11 +480,14 @@ export async function validateFullBackup(
   const raw = JSON.parse(strFromU8(entries["metadata.json"]));
   if (manifest.schemaVersion === 2)
     for (const name of Object.keys(stage3Schemas)) raw.tables[name] ??= [];
+  if (manifest.schemaVersion < 4)
+    for (const name of Object.keys(notaSchemas)) raw.tables[name] ??= [];
   const tables = backupSchema.parse(raw).tables;
   for (const name of metadataTables)
     if (
       (manifest.counts[name] ??
-        (manifest.schemaVersion === 2 && name in stage3Schemas
+        ((manifest.schemaVersion === 2 && name in stage3Schemas) ||
+        (manifest.schemaVersion < 4 && name in notaSchemas)
           ? 0
           : undefined)) !== tables[name].length
     )

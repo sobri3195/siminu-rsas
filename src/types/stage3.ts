@@ -105,6 +105,7 @@ export interface MeetingMinutes {
   updatedAt: string;
 }
 export type LinkKind =
+  | "notes"
   | "letters"
   | "dispositions"
   | "tasks"

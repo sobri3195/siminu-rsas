@@ -1,21 +1,10 @@
-## Perubahan
+Pengguna kini dapat mengelola Nota Dinas pada menu khusus, dari konsep hingga pemeriksaan, revisi, persetujuan simulasi, nomor resmi lokal, DOCX/cetak, Surat Keluar, dan arsip. Naskah generik serta data lama tetap tersedia.
 
-Aplikasi sebelumnya berfokus pada registrasi, disposisi dan tindak lanjut surat. PR ini menambahkan penyusunan lima jenis naskah terstruktur dengan autosave, pratinjau A4, DOCX berbasis teks, versi immutable dan pemeriksaan berjenjang. Keputusan terikat pada versi; perubahan isi meminta pemeriksaan ulang sambil mempertahankan riwayat dan korespondensi yang sudah bernomor. Template awal secara eksplisit generik karena format resmi belum tersedia.
+- Tambahkan editor dua panel/mobile bertab, tujuh template isi yang dapat diubah, profil penandatangan per unit, format RSAS yang dapat diatur, checklist, autosave, konflik revisi, snapshot/perbandingan/pemulihan, serta komentar pemeriksaan per bagian.
+- Kunci isi disetujui; revisi baru mempertahankan sejarah dan nomor lama. Reservasi nomor/penghitung transaksional mencegah duplikasi dua tab dan pemakaian ulang nomor yang dibatalkan. Pendaftaran Surat Keluar memakai sumber/versi yang idempoten; pengiriman dicatat manual.
+- Simpan PDF/JPG/PNG/DOCX asli; tampilkan gambar beserta keterangan di halaman lanjutan dengan ukuran, rotasi, dan crop manual. Satu model menghasilkan pratinjau A4, cetak browser, dan DOCX editable dengan tabel/gambar.
+- Tambahkan migrasi IndexedDB 3→4 dan cadangan ZIP v4 untuk nota, versi, catatan, template/profil, nomor, dan Blob. Validasi sumber, referensi, serta konflik nomor dilakukan sebelum pemulihan; paket v2/v3 tetap diterima.
 
-Agenda yang ada diperluas dengan undangan pimpinan/unit, peringatan benturan, perwakilan/kehadiran, hasil kegiatan dan ICS. Notulen menghasilkan tugas berdasarkan ID keputusan setelah konfirmasi, sehingga klik berulang tidak menggandakan tugas. Berkas kegiatan menautkan dokumen sumber dan menampilkan kronologi serta pekerjaan terbuka tanpa menyalin/menghapus sumber.
+Validasi: TypeScript dan build produksi lolos; 33 tes repository dan 17 skenario Chromium lolos, termasuk alur utama offline dengan enam screenshot, dua tab, Surat Keluar idempoten, serta pemulihan ZIP. Empat skenario nota diulang setelah penyelarasan cetak. DOCX dibuka LibreOffice; hasilnya dan cetak Chromium berisi tujuh halaman A4 dengan tanda tangan/gambar utuh. Contoh DOCX/PDF disertakan di examples; panduan pada docs/NOTA_DINAS.md dan bukti pada docs/VERIFICATION.md.
 
-Pencarian isi memanfaatkan data lokal dan PDF.js worker yang ikut cache offline. CSV/XLSX memiliki pemetaan, pratinjau, validasi dan hasil per baris tanpa menimpa data lama. Pilihan banyak surat mendukung label, bundel, CSV/cetak dan arsip bersyarat dengan hasil per item. Laporan waktu memakai median/n/kelengkapan timestamp dan tidak menganggap nilai yang hilang sebagai nol. Bantuan menambahkan panduan yang dapat dilewati/dibuka ulang.
-
-Migrasi Dexie v3 mempertahankan data lama. ZIP skema 3 mencakup entitas baru, versi, notulen dan lampiran; paket skema 2 tetap kompatibel. Contoh DOCX dan panduan uji disertakan.
-
-## Validasi
-
-- TypeScript dan build produksi lolos.
-- 22 tes repository mencakup workflow lama, DOCX teks, versi/persetujuan, ICS/zona waktu, idempotensi keputusan, tautan berkas, CSV/impor, bulk parsial, median, cadangan baru/kompatibilitas v2, dan migrasi Blob v2→v3.
-- 13 skenario Chromium pada build produksi mencakup sembilan regresi sebelumnya dan empat alur baru. Naskah/DOCX, agenda/ICS/notulen/bundel, PDF.js worker, XLSX/bulk/analisis diuji dengan koneksi browser dimatikan.
-- PDF tanpa lapisan teks diberi keterangan yang benar; pengujian PDF mencatat bahwa tidak ada permintaan ke domain eksternal.
-- Dua contoh DOCX dirender dengan LibreOffice menjadi PDF A4 satu halaman; teks dan tampilannya diperiksa.
-
-## Batasan
-
-Template resmi, render DOCX pada Microsoft Word, printer fisik, Safari/Firefox dan deployment HTTPS baru belum diverifikasi. Tidak ada OCR, backend, sinkronisasi multiuser, autentikasi identitas atau tanda tangan elektronik tersertifikasi. XLSX hanya lembar pertama; ekstraksi PDF dibatasi 500 halaman per berkas. Laporan memakai jam kalender; data historis tanpa timestamp dikecualikan. Rincian dan langkah reproduksi ada di docs/STAGE3.md.
+Format mengikuti struktur teks RSAS yang diberikan pengguna. Contoh resmi belum tersedia sehingga margin/font/jarak belum dinyatakan cocok dengan format resmi. Microsoft Word, printer fisik, Safari/Firefox, dan deployment HTTPS belum diuji. Peran/persetujuan merupakan simulasi lokal; keunikan nomor antarkomputer memerlukan penyimpanan bersama.
