@@ -4,9 +4,18 @@ export const draftKinds = [
   "Surat pengantar",
   "Surat tugas",
   "Laporan kegiatan",
+  "Surat dinas",
+  "Template kosong",
 ] as const;
 export type DraftKind = (typeof draftKinds)[number];
 export interface DraftContent {
+  conceptNumber?: string;
+  address?: string;
+  opening?: string;
+  referenceText?: string;
+  attachmentCount?: string;
+  font?: string;
+  margin?: string;
   heading: string;
   number: string;
   date: string;
@@ -33,8 +42,13 @@ export type DraftStage =
   | "Perbaikan"
   | "Persetujuan"
   | "Penomoran"
-  | "Pengiriman";
+  | "Pengiriman"
+  | "Tercatat dikirim"
+  | "Diarsipkan";
 export interface OfficialDraft {
+  integrated?: boolean;
+  incomingIds?: string[];
+  supersedesId?: string;
   templateOfficial?: boolean;
   templateName?: string;
   templateUpdatedAt?: string;
@@ -57,6 +71,9 @@ export interface OfficialDraft {
   updatedAt: string;
 }
 export interface DraftVersion {
+  stage?: DraftStage;
+  attachmentIds?: string[];
+  incomingIds?: string[];
   id: string;
   draftId: string;
   version: number;
@@ -66,6 +83,13 @@ export interface DraftVersion {
   createdAt: string;
 }
 export interface DraftDecision {
+  snapshot?: {
+    content: DraftContent;
+    attachmentIds: string[];
+    incomingIds: string[];
+    stage: DraftStage;
+  };
+  section?: string;
   id: string;
   draftId: string;
   version: number;
@@ -76,7 +100,10 @@ export interface DraftDecision {
     | "Disetujui simulasi"
     | "Diberi nomor"
     | "Persetujuan tidak berlaku"
-    | "Dipulihkan";
+    | "Dipulihkan"
+    | "Catatan pemeriksaan"
+    | "Revisi diterbitkan"
+    | "Diarsipkan";
   userId: string;
   note: string;
   createdAt: string;

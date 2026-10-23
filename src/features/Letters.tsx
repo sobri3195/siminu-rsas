@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useForm } from "react-hook-form";
@@ -15,6 +15,10 @@ import { canRegister, register } from "../repositories/workflow";
 import { Badge, Empty, Field } from "../components/common";
 import { dateLabel, id, now, today } from "../utils";
 const schema = z.object({
+  institution: z.string().optional(),
+  physicalLocation: z.string().optional(),
+  targetUnitId: z.string().optional(),
+  register: z.string().optional(),
   sender: z.string().min(2, "Isi nama pengirim."),
   number: z.string().min(1, "Nomor surat wajib diisi."),
   date: z.string().min(1, "Pilih tanggal surat."),
@@ -78,7 +82,7 @@ export function Letters({
         )) &&
       (!params.get("year") || l.received.startsWith(params.get("year")!)) &&
       (!params.get("favorite") || l.favorite) &&
-      `${l.subject} ${l.sender} ${l.number} ${l.agenda} ${l.summary} ${(l.labels || []).join(" ")} ${dispositionsData
+      `${l.subject} ${l.sender} ${l.number} ${l.agenda} ${l.physicalLocation || ""} ${l.institution || ""} ${l.summary} ${(l.labels || []).join(" ")} ${dispositionsData
         .filter((d) => d.letterId === l.id)
         .map(
           (d) =>
@@ -399,8 +403,12 @@ export function NewLetter() {
   const [step, setStep] = useState(1);
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
+  const agendaManual = useRef(
+    localStorage.getItem(`rsas-agenda-manual-${dataMode}`) === "1",
+  );
   const [error, setError] = useState("");
   const catalogs = useLiveQuery(() => db.catalogs.toArray()) || [];
+  const units = useLiveQuery(() => db.units.toArray()) || [];
   const loadedLetters = useLiveQuery(() => db.letters.toArray());
   const letters = loadedLetters || [];
   const saved =
@@ -423,7 +431,7 @@ export function NewLetter() {
     trigger,
     setValue,
     reset,
-    formState: { errors, isDirty, dirtyFields },
+    formState: { errors, isDirty },
   } = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -520,9 +528,10 @@ export function NewLetter() {
         },
         files,
         user.name,
-        !dirtyFields.agenda,
+        !agendaManual.current,
       );
       localStorage.removeItem(`rsas-letter-draft-${dataMode}`);
+      localStorage.removeItem(`rsas-agenda-manual-${dataMode}`);
       if (dataMode === "local") localStorage.removeItem("rsas-letter-draft");
       await run(async () => {}, "Surat berhasil diregistrasi.");
       navigate("/surat-masuk");
@@ -565,6 +574,8 @@ export function NewLetter() {
             localStorage.removeItem(`rsas-letter-draft-${dataMode}`);
             if (dataMode === "local")
               localStorage.removeItem("rsas-letter-draft");
+            agendaManual.current = false;
+            localStorage.removeItem(`rsas-agenda-manual-${dataMode}`);
             setFiles([]);
             setStep(1);
             setError("");
@@ -644,6 +655,16 @@ export function NewLetter() {
                 <input
                   type={["date", "received"].includes(k) ? "date" : "text"}
                   {...field(k)}
+                  onChange={(e) => {
+                    void field(k).onChange(e);
+                    if (k === "agenda") {
+                      agendaManual.current = true;
+                      localStorage.setItem(
+                        `rsas-agenda-manual-${dataMode}`,
+                        "1",
+                      );
+                    }
+                  }}
                 />
                 {errors[k] && (
                   <small className="error">{errors[k]?.message}</small>
@@ -672,6 +693,27 @@ export function NewLetter() {
                 </select>
               </Field>
             ))}
+            <Field label="Instansi pengirim">
+              <input {...field("institution")} />
+            </Field>
+            <Field label="Lokasi dokumen fisik">
+              <input {...field("physicalLocation")} />
+            </Field>
+            <Field label="Register agenda">
+              <input placeholder="SM" {...field("register")} />
+            </Field>
+            <Field label="Unit pengelola">
+              <select {...field("targetUnitId")}>
+                <option value="">Pilih unit</option>
+                {units
+                  .filter((u) => u.active)
+                  .map((u) => (
+                    <option value={u.id} key={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+              </select>
+            </Field>
             <Field label="Ringkasan">
               <textarea {...field("summary")} />
             </Field>

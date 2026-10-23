@@ -1,6 +1,11 @@
 import Dexie, { type EntityTable } from "dexie";
 import type * as T from "../types";
 export type AppDatabase = Dexie & {
+  replyAssignments: EntityTable<T.ReplyAssignment, "id">;
+  mailNumbers: EntityTable<T.MailNumber, "id">;
+  dispatchTargets: EntityTable<T.DispatchTarget, "id">;
+  dispatches: EntityTable<T.MailDispatch, "id">;
+  mailLinks: EntityTable<T.MailLink, "id">;
   dispositionDrafts: EntityTable<T.DispositionDraft, "id">;
   dispositionVersions: EntityTable<T.DispositionVersion, "id">;
   recipientReceipts: EntityTable<T.RecipientReceipt, "id">;
@@ -128,6 +133,13 @@ export function createDatabase(name: string): AppDatabase {
           if (t.status !== "Belum dibaca") t.readAt ??= t.acceptedAt;
         });
     });
+  db.version(6).stores({
+    replyAssignments: "id,decision,picId",
+    mailNumbers: "id,draftId,outgoingId",
+    dispatchTargets: "id,outgoingId",
+    dispatches: "id,targetId,outgoingId",
+    mailLinks: "id,fromId,toId",
+  });
   db.on("blocked", () => {
     if (typeof window !== "undefined")
       window.dispatchEvent(new CustomEvent("rsas-db-upgrade"));

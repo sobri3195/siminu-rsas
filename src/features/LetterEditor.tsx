@@ -43,6 +43,8 @@ export function LetterEditor({
               "urgency",
               "classification",
               "summary",
+              "institution",
+              "physicalLocation",
             ] as const
           ).map((key, i) => (
             <Field
@@ -59,12 +61,14 @@ export function LetterEditor({
                   "Derajat",
                   "Klasifikasi",
                   "Ringkasan",
+                  "Instansi pengirim",
+                  "Lokasi dokumen fisik",
                 ][i]
               }
             >
               <input
                 type={["date", "received"].includes(key) ? "date" : "text"}
-                value={draft[key]}
+                value={draft[key] || ""}
                 onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
               />
             </Field>

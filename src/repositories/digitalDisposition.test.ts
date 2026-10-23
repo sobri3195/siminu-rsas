@@ -458,7 +458,7 @@ it("ZIP skema 5 mencakup disposisi bertingkat dan Blob; referensi rusak ditolak 
     new File(["data hasil"], "hasil.txt"),
   ]);
   const pkg = await validateFullBackup(await createFullBackup());
-  expect(pkg.manifest.schemaVersion).toBe(5);
+  expect(pkg.manifest.schemaVersion).toBe(6);
   expect(pkg.tables.dispositionVersions).toHaveLength(1);
   const bad = structuredClone(pkg.tables);
   bad.recipientReceipts[0].recipientId = "missing";

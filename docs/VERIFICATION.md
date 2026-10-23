@@ -1,3 +1,33 @@
+# Verifikasi terbaru — Pengelolaan Surat Terpadu v6 (24 Oktober 2026)
+
+Lingkungan: Node 24, Chromium Linux 154, produksi Vite/PWA localhost, IndexedDB browser dan fake-indexeddb. Tanggal laporan menggunakan Asia/Bangkok.
+
+| Pemeriksaan        | Hasil                                                                                                                                                                                                                                                                                  |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TypeScript         | Lolos, termasuk source dan tes repository                                                                                                                                                                                                                                              |
+| Build produksi     | Lolos; Vercel SPA tetap memakai konfigurasi yang ada; font dan worker lokal masuk precache                                                                                                                                                                                             |
+| Vitest             | 67 tes lolos: 50 regresi dan 17 surat terpadu                                                                                                                                                                                                                                          |
+| Playwright         | 25 skenario lengkap lolos; setelah penyelarasan lampiran, 8 skenario editor/stage3 dan 4 skenario surat diulang dan lolos                                                                                                                                                              |
+| Alur utama offline | Registrasi → penilaian PIC/unit/tenggat → balasan terkait → lampiran/urutan/caption → reload → ajukan → koreksi → perbaiki → paraf/setujui → nomor → DOCX → dua tujuan → satu diterima → arsip sumber/keluar → ZIP/restore                                                             |
+| Duplikasi/konflik  | Konsep aktif dilanjutkan atau tambahan eksplisit; contoh idempoten; konflik tab mempertahankan input; duplikasi membuka record baru; agenda dua tab unik                                                                                                                               |
+| Penomoran          | Dua tab dengan dokumen berbeda berebut nomor resmi sama: satu berhasil, satu ditolak; pola tanpa sequence ditolak; nomor batal tetap dicadangkan; filter register/CSV berfungsi                                                                                                        |
+| Versi/lampiran     | Persetujuan gugur saat isi berubah; surat terbit dikunci dan revisi beralasan mempertahankan surat keluar lama; pemulihan menghasilkan versi baru beserta referensi/Blob; judul/caption/penggantian mempertahankan record lama; ekspor mengikuti urutan yang dipilih                   |
+| Kegagalan simpan   | Simulasi quota menolak transaksi tanpa Blob/versi parsial atau klaim berhasil; formulir/input dipertahankan                                                                                                                                                                            |
+| Ekspedisi          | Tujuan dan percobaan terpisah; gagal/ulang menyimpan riwayat; tanggal penerimaan tidak mendahului kirim; penerimaan tercatat tidak hilang karena percobaan tambahan; tujuan baru membuka pekerjaan kembali                                                                             |
+| Status/arsip       | Konsep/disetujui belum berarti balasan selesai; semua tujuan harus tercatat dikirim; penutupan tanpa balasan memerlukan alasan; arsip tidak menutup kewajiban terbuka                                                                                                                  |
+| Migrasi/cadangan   | Migrasi v5→v6 mempertahankan surat/Blob tanpa penilaian atau pengiriman palsu; paket v2–v5 tetap dibaca; ZIP v6 memulihkan bukti asli, versi, register dan relasi; checksum/referensi/nomor rusak ditolak; konflik nomor lintas ID ditampilkan sebelum merge; replace membuat recovery |
+| DOCX               | Teks, format tebal, tabel dan media tersimpan sebagai unsur Word; dibuka LibreOffice dan dikonversi menjadi tiga halaman A4; blok tanda tangan kosong tetap utuh                                                                                                                       |
+| Cetak              | Normal tiga halaman A4; lampiran teks dan gambar berurutan, gambar/caption utuh. Draf panjang lima halaman dengan 75 butir dan PENANDA-AKHIR-SURAT tetap terbaca                                                                                                                       |
+| Mobile             | 390 px; Isi/Pratinjau A4, navigasi, input dan referensi dapat digunakan                                                                                                                                                                                                                |
+
+Alur utama dijalankan setelah service worker siap, jaringan browser diputus, dengan **nol permintaan HTTP ke domain eksternal**. Byte bukti diuji melalui pemulihan repository; UI memulihkan kedua catatan tujuan, bukti dan konsep. PDF diperiksa dengan pdfinfo/pdftotext dan tampilan halaman; DOCX diperiksa XML serta dibuka LibreOffice. [Dokumen contoh](../examples/README.md) dan [panduan](PENGELOLAAN_SURAT_TERPADU.md) disertakan.
+
+Hasil gagal selama pengembangan (agenda tab ganda, input koreksi terhapus, pembukaan duplikat memakai state record lama, dan urutan lampiran ekspor) telah diperbaiki dan skenario terkait lulus. Satu fixture PNG yang tidak valid diganti dengan gambar uji valid; aplikasi menampilkan kegagalan decode tanpa mengklaim ekspor berhasil.
+
+Belum diuji: Safari, Firefox, printer fisik dan deployment HTTPS/Vercel aktual. Format resmi RSAS serta pola nomor resmi belum disediakan; template/pola bawaan ditandai rancangan dan memerlukan pemeriksaan pengguna. Peringatan anotasi dependency/ukuran chunk tidak menghalangi build. Persetujuan/peran lokal adalah simulasi; pengiriman/penerimaan dicatat manual.
+
+---
+
 # Verifikasi terbaru — Disposisi Digital v5 (23 Oktober 2026)
 
 Lingkungan: Node 24, Chromium Linux 154, build produksi Vite/PWA pada localhost. IndexedDB browser untuk pengujian UI; fake-indexeddb untuk repository.

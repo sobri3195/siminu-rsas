@@ -1,3 +1,7 @@
+import { replyStage } from "../repositories/mail";
+import { MailCenter, PrintMailRegister } from "../features/MailCenter";
+import { MailDispatchBook } from "../features/MailDispatch";
+import { MailThread } from "../features/ReplyManagement";
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -66,6 +70,12 @@ import "../styles/app.css";
 const nav = [
   ["/", "Beranda", LayoutDashboard],
   ["/surat-masuk", "Surat Masuk", Mail],
+  ["/perlu-dibalas", "Perlu Dibalas", Mail],
+  ["/konsep-surat", "Konsep Surat", Mail],
+  ["/pemeriksaan-surat", "Pemeriksaan Surat", ClipboardCheck],
+  ["/register-nomor", "Register Nomor", Database],
+  ["/buku-ekspedisi", "Buku Ekspedisi", Send],
+  ["/template-surat", "Template Surat", Mail],
   ["/disposisi", "Disposisi Digital", GitBranch],
   ["/tugas", "Tugas Saya", ClipboardCheck],
   ["/nota-dinas", "Nota Dinas", Mail],
@@ -76,7 +86,7 @@ const nav = [
   ["/berkas-kegiatan", "Berkas Kegiatan", Archive],
   ["/pencarian", "Pencarian Isi", Search],
   ["/impor-register", "Impor Register", Database],
-  ["/arsip", "Arsip", Archive],
+  ["/arsip", "Arsip Surat", Archive],
   ["/analisis", "Analisis Waktu", BarChart3],
   ["/laporan", "Laporan", BarChart3],
   ["/master", "Master Data", Database],
@@ -140,7 +150,36 @@ function App() {
   const [mobile, setMobile] = useState(false);
   const [notification, setNotification] = useState(false);
   const [query, setQuery] = useState("");
-  const letterCount = useLiveQuery(() => db.letters.count()) || 0;
+  const letterCount =
+    useLiveQuery(async () => {
+      const a = await db.replyAssignments.toArray();
+      return db.letters
+        .filter(
+          (l) =>
+            !a.some((v) => v.id === l.id && v.decision !== "Perlu penilaian"),
+        )
+        .count();
+    }) || 0;
+  const workCounts =
+    useLiveQuery(async () => {
+      const ds = await db.drafts.toArray(),
+        as = await db.replyAssignments.toArray(),
+        targets = await db.dispatchTargets.toArray(),
+        dispatches = await db.dispatches.toArray();
+      return {
+        "/perlu-dibalas": as.filter(
+          (a) =>
+            a.decision === "Perlu balasan" &&
+            replyStage(a.id, ds, targets, dispatches) !== "Selesai",
+        ).length,
+        "/konsep-surat": ds.filter((d) =>
+          ["Draf", "Perbaikan"].includes(d.stage),
+        ).length,
+        "/pemeriksaan-surat": ds.filter((d) =>
+          ["Pemeriksaan", "Persetujuan"].includes(d.stage),
+        ).length,
+      };
+    }) || {};
   const notifications = useLiveQuery(() => db.notifications.toArray()) || [];
   const location = useLocation();
   const navigate = useNavigate();
@@ -210,7 +249,12 @@ function App() {
                     <NavLink end={path === "/"} to={path} title={label}>
                       <Icon size={20} />
                       <span>{label}</span>
-                      {path === "/surat-masuk" && <em>{letterCount}</em>}
+                      {path === "/surat-masuk" && (
+                        <em title="Surat belum dinilai">{letterCount}</em>
+                      )}
+                      {path in workCounts && (
+                        <em>{workCounts[path as keyof typeof workCounts]}</em>
+                      )}
                     </NavLink>
                   </React.Fragment>
                 ),
@@ -351,14 +395,50 @@ function App() {
               <Route path="/nota-dinas/:id" element={<NoteEditor />} />
               <Route path="/naskah" element={<Drafting />} />
               <Route path="/naskah/:id" element={<DraftEditor />} />
-              <Route path="/surat-keluar" element={<Outgoing />} />
+              <Route
+                path="/perlu-dibalas"
+                element={<MailCenter view="reply" />}
+              />
+              <Route
+                path="/konsep-surat"
+                element={<MailCenter view="drafts" />}
+              />
+              <Route
+                path="/pemeriksaan-surat"
+                element={<MailCenter view="review" />}
+              />
+              <Route
+                path="/register-nomor"
+                element={<MailCenter view="numbers" />}
+              />
+              <Route path="/buku-ekspedisi" element={<MailDispatchBook />} />
+              <Route path="/template-surat" element={<Drafting />} />
+              <Route path="/rangkaian/:id" element={<MailThread />} />
+              <Route path="/cetak-register" element={<PrintMailRegister />} />
+              <Route
+                path="/surat-keluar"
+                element={
+                  <>
+                    <MailCenter view="outgoing" />
+                    <Outgoing />
+                  </>
+                }
+              />
               <Route path="/agenda" element={<LeadershipAgenda />} />
               <Route path="/notulen" element={<Minutes />} />
               <Route path="/notulen/:id" element={<Minutes />} />
               <Route path="/berkas-kegiatan" element={<Cases />} />
               <Route path="/pencarian" element={<ContentSearch />} />
               <Route path="/impor-register" element={<SpreadsheetImport />} />
-              <Route path="/arsip" element={<Letters archive />} />
+              <Route
+                path="/arsip"
+                element={
+                  <>
+                    <Letters archive />
+                    <MailCenter view="archive" />
+                  </>
+                }
+              />
               <Route path="/analisis" element={<Analytics />} />
               <Route path="/laporan" element={<Reports />} />
               <Route path="/master" element={<Master />} />
@@ -382,7 +462,7 @@ function App() {
               <span>
                 SIMINU RSAS · Administrasi tertib, pelayanan lebih baik.
               </span>
-              <span>Frontend demo · v5.0</span>
+              <span>Frontend demo · v6.0</span>
             </footer>
           </main>
         </div>

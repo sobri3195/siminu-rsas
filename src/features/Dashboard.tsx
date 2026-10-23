@@ -1,3 +1,4 @@
+import { MailDashboard } from "./MailCenter";
 import { Link, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
@@ -116,6 +117,7 @@ export function Dashboard() {
   });
   return (
     <>
+      <MailDashboard />
       <div className="page-heading">
         <div>
           <p className="eyebrow">RUANG KERJA ADMINISTRASI</p>

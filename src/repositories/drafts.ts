@@ -1,3 +1,4 @@
+import { checkDraftForSubmission, issueMailNumber } from "./mail";
 import { db } from "../storage/db";
 import type {
   DraftContent,
@@ -9,6 +10,13 @@ import { draftKinds } from "../types";
 import { id, now, today } from "../utils";
 import { z } from "zod";
 export const contentSchema = z.object({
+  conceptNumber: z.string().optional(),
+  address: z.string().optional(),
+  opening: z.string().optional(),
+  referenceText: z.string().optional(),
+  attachmentCount: z.string().optional(),
+  font: z.enum(["Times New Roman", "Arial"]).optional(),
+  margin: z.enum(["20", "25", "30"]).optional(),
   heading: z.string(),
   number: z.string(),
   date: z.iso.date(),
@@ -36,25 +44,32 @@ export const emptyContent = (): DraftContent => ({
 });
 export async function ensureTemplates() {
   await db.transaction("rw", [db.templates, db.settings], async () => {
-    if (await db.templates.count()) return;
+    const existing = new Set((await db.templates.toArray()).map((t) => t.kind));
     const settings = await db.settings.get("main");
-    await db.templates.bulkAdd(
-      draftKinds.map((kind, i) => ({
-        id: `template-${i}`,
-        name: `${kind} — generik (bukan format resmi)`,
-        kind,
-        official: false,
-        content: {
-          ...emptyContent(),
-          heading: settings?.hospital || emptyContent().heading,
-          signer: [settings?.official, settings?.rank, settings?.nrp]
-            .filter(Boolean)
-            .join(" · "),
-          subject: kind,
-          body: "[Isi naskah disusun oleh pengguna.]",
-        },
-        updatedAt: now(),
-      })),
+    await db.templates.bulkPut(
+      (
+        await Promise.all(
+          draftKinds.map(async (kind, i) => ({
+            id: `template-${i}`,
+            name: `${kind} — generik (bukan format resmi)`,
+            kind,
+            official: false,
+            content: {
+              ...emptyContent(),
+              heading: settings?.hospital || emptyContent().heading,
+              signer: [settings?.official, settings?.rank, settings?.nrp]
+                .filter(Boolean)
+                .join(" · "),
+              subject: kind,
+              body:
+                kind === "Template kosong"
+                  ? ""
+                  : "[Isi naskah disusun oleh pengguna.]",
+            },
+            updatedAt: now(),
+          })),
+        )
+      ).filter((t) => !existing.has(t.kind)),
     );
   });
 }
@@ -72,12 +87,19 @@ async function decision(
     userId,
     note,
     createdAt: now(),
+    snapshot: {
+      content: d.content,
+      attachmentIds: d.attachmentIds,
+      incomingIds: d.incomingIds || [],
+      stage: d.stage,
+    },
   });
 }
 export async function createDraft(
   templateId: string,
   userId: string,
   unitId: string,
+  integrated = false,
 ) {
   return db.transaction(
     "rw",
@@ -87,6 +109,8 @@ export async function createDraft(
       if (!template) throw Error("Template tidak ditemukan.");
       const d: OfficialDraft = {
         id: id(),
+        integrated,
+        incomingIds: [],
         templateId,
         templateOfficial: template.official,
         templateName: template.name,
@@ -136,7 +160,18 @@ export async function saveDraft(
         throw Error(
           "Konflik revisi: naskah berubah di tab lain. Input dipertahankan; muat versi terbaru sebelum melanjutkan.",
         );
-      if (JSON.stringify(old.content) === JSON.stringify(valid)) return old;
+      if (
+        old.integrated &&
+        ["Pengiriman", "Tercatat dikirim", "Diarsipkan"].includes(old.stage)
+      )
+        throw Error(
+          "Surat terbit dikunci. Buat revisi beralasan terlebih dahulu.",
+        );
+      if (
+        JSON.stringify(old.content) === JSON.stringify(valid) &&
+        !reason.startsWith("Pemulihan")
+      )
+        return old;
       const next: OfficialDraft = {
         ...old,
         content: { ...valid, number: "" },
@@ -163,6 +198,9 @@ export async function saveDraft(
         draftId,
         version: next.version,
         content: next.content,
+        attachmentIds: next.attachmentIds,
+        incomingIds: next.incomingIds,
+        stage: next.stage,
         authorId: userId,
         reason,
         createdAt: now(),
@@ -179,81 +217,82 @@ export async function draftAction(
   note = "",
   reviewerIds: string[] = [],
 ) {
-  return db.transaction(
-    "rw",
-    [db.drafts, db.draftDecisions, db.users, db.sequences, db.outgoing],
-    async () => {
-      const d = await db.drafts.get(draftId);
-      const user = await db.users.get(userId);
-      if (!d || !user?.active)
-        throw Error("Naskah atau pengguna aktif tidak tersedia.");
-      if (d.revision !== expected)
-        throw Error("Versi sudah berubah. Tinjau ulang sebelum keputusan.");
-      const admin = user.role === "Admin Sistem";
-      let event: DraftDecision["action"];
-      if (action === "submit") {
+  return db.transaction("rw", db.tables, async () => {
+    const d = await db.drafts.get(draftId);
+    const user = await db.users.get(userId);
+    if (!d || !user?.active)
+      throw Error("Naskah atau pengguna aktif tidak tersedia.");
+    if (d.revision !== expected)
+      throw Error("Versi sudah berubah. Tinjau ulang sebelum keputusan.");
+    const admin = user.role === "Admin Sistem";
+    let event: DraftDecision["action"];
+    if (action === "submit") {
+      if (d.integrated) await checkDraftForSubmission(d);
+      if (
+        !["Draf", "Perbaikan"].includes(d.stage) ||
+        !d.content.body.trim() ||
+        !d.content.to.trim()
+      )
+        throw Error("Isi dan tujuan wajib lengkap sebelum diajukan.");
+      if (
+        !reviewerIds.length ||
+        new Set(reviewerIds).size !== reviewerIds.length
+      )
+        throw Error("Pilih pemeriksa berurutan tanpa duplikat.");
+      for (const uid of reviewerIds) {
+        const reviewer = await db.users.get(uid);
         if (
-          !["Draf", "Perbaikan"].includes(d.stage) ||
-          !d.content.body.trim() ||
-          !d.content.to.trim()
+          !reviewer?.active ||
+          (reviewer.unitId !== d.unitId &&
+            !["Admin Sistem", "Kepala RSAU"].includes(reviewer.role))
         )
-          throw Error("Isi dan tujuan wajib lengkap sebelum diajukan.");
-        if (
-          !reviewerIds.length ||
-          new Set(reviewerIds).size !== reviewerIds.length
-        )
-          throw Error("Pilih pemeriksa berurutan tanpa duplikat.");
-        for (const uid of reviewerIds) {
-          const reviewer = await db.users.get(uid);
-          if (
-            !reviewer?.active ||
-            (reviewer.unitId !== d.unitId &&
-              !["Admin Sistem", "Kepala RSAU"].includes(reviewer.role))
-          )
-            throw Error("Pemeriksa harus aktif dan sesuai unit naskah.");
-        }
-        d.reviewerIds = reviewerIds;
-        d.reviewIndex = 0;
-        d.stage = "Pemeriksaan";
-        d.reviewingVersion = d.version;
-        event = "Diajukan";
-      } else if (action === "review" || action === "return") {
-        if (
-          !["Pemeriksaan", "Persetujuan"].includes(d.stage) ||
-          d.reviewingVersion !== d.version
-        )
-          throw Error("Versi ini tidak sedang diperiksa.");
-        const allowed =
-          d.stage === "Pemeriksaan"
-            ? d.reviewerIds[d.reviewIndex] === userId
-            : user.role === "Kepala RSAU";
-        if (!admin && !allowed)
-          throw Error("Keputusan hanya untuk pemeriksa yang sedang bertugas.");
-        if (action === "return") {
-          if (!note.trim()) throw Error("Catatan koreksi wajib diisi.");
-          d.stage = "Perbaikan";
-          d.approvedVersion = undefined;
-          event = "Dikembalikan";
-        } else {
-          if (d.stage !== "Pemeriksaan")
-            throw Error("Tahap paraf pemeriksa sudah selesai.");
-          d.reviewIndex++;
-          if (d.reviewIndex >= d.reviewerIds.length) d.stage = "Persetujuan";
-          event = "Paraf simulasi";
-        }
-      } else if (action === "approve") {
-        if (!admin && user.role !== "Kepala RSAU")
-          throw Error("Persetujuan memerlukan peran Kepala RSAU.");
-        if (d.stage !== "Persetujuan" || d.reviewingVersion !== d.version)
-          throw Error("Periksa versi terkini terlebih dahulu.");
-        d.approvedVersion = d.version;
-        d.stage = "Penomoran";
-        event = "Disetujui simulasi";
+          throw Error("Pemeriksa harus aktif dan sesuai unit naskah.");
+      }
+      d.reviewerIds = reviewerIds;
+      d.reviewIndex = 0;
+      d.stage = "Pemeriksaan";
+      d.reviewingVersion = d.version;
+      event = "Diajukan";
+    } else if (action === "review" || action === "return") {
+      if (
+        !["Pemeriksaan", "Persetujuan"].includes(d.stage) ||
+        d.reviewingVersion !== d.version
+      )
+        throw Error("Versi ini tidak sedang diperiksa.");
+      const allowed =
+        d.stage === "Pemeriksaan"
+          ? d.reviewerIds[d.reviewIndex] === userId
+          : user.role === "Kepala RSAU";
+      if (!admin && !allowed)
+        throw Error("Keputusan hanya untuk pemeriksa yang sedang bertugas.");
+      if (action === "return") {
+        if (!note.trim()) throw Error("Catatan koreksi wajib diisi.");
+        d.stage = "Perbaikan";
+        d.approvedVersion = undefined;
+        event = "Dikembalikan";
       } else {
-        if (!admin && user.role !== "Petugas Urtu/Administrasi")
-          throw Error("Penomoran memerlukan petugas administrasi.");
-        if (d.stage !== "Penomoran" || d.approvedVersion !== d.version)
-          throw Error("Penomoran hanya untuk versi yang disetujui.");
+        if (d.stage !== "Pemeriksaan")
+          throw Error("Tahap paraf pemeriksa sudah selesai.");
+        d.reviewIndex++;
+        if (d.reviewIndex >= d.reviewerIds.length) d.stage = "Persetujuan";
+        event = "Paraf simulasi";
+      }
+    } else if (action === "approve") {
+      if (!admin && user.role !== "Kepala RSAU")
+        throw Error("Persetujuan memerlukan peran Kepala RSAU.");
+      if (d.stage !== "Persetujuan" || d.reviewingVersion !== d.version)
+        throw Error("Periksa versi terkini terlebih dahulu.");
+      d.approvedVersion = d.version;
+      d.stage = "Penomoran";
+      event = "Disetujui simulasi";
+    } else {
+      if (!admin && user.role !== "Petugas Urtu/Administrasi")
+        throw Error("Penomoran memerlukan petugas administrasi.");
+      if (d.stage !== "Penomoran" || d.approvedVersion !== d.version)
+        throw Error("Penomoran hanya untuk versi yang disetujui.");
+      if (d.integrated) {
+        await issueMailNumber(d, userId, note);
+      } else {
         const key = `outgoing:${d.content.date.slice(0, 4)}`;
         const seq = await db.sequences.get(key);
         let n = (seq?.value || 0) + 1;
@@ -287,15 +326,15 @@ export async function draftAction(
         };
         await db.outgoing.put(out);
         d.outgoingId = out.id;
-        event = "Diberi nomor";
       }
-      d.revision++;
-      d.updatedAt = now();
-      await db.drafts.put(d);
-      await decision(d, event, userId, note);
-      return d;
-    },
-  );
+      event = "Diberi nomor";
+    }
+    d.revision++;
+    d.updatedAt = now();
+    await db.drafts.put(d);
+    await decision(d, event, userId, note);
+    return d;
+  });
 }
 export async function restoreDraftVersion(
   draftId: string,
@@ -305,13 +344,27 @@ export async function restoreDraftVersion(
   reason: string,
 ) {
   if (!reason.trim()) throw Error("Alasan pemulihan wajib diisi.");
-  const old = await db.draftVersions.where({ draftId, version }).first();
-  if (!old) throw Error("Versi tidak ditemukan.");
-  return saveDraft(
-    draftId,
-    expected,
-    old.content,
-    userId,
-    "Pemulihan versi " + version + ": " + reason,
-  );
+  return db.transaction("rw", db.tables, async () => {
+    const old = await db.draftVersions.where({ draftId, version }).first();
+    if (!old) throw Error("Versi tidak ditemukan.");
+    const next = await saveDraft(
+      draftId,
+      expected,
+      old.content,
+      userId,
+      "Pemulihan versi " + version + ": " + reason,
+    );
+    if (next.integrated) {
+      next.attachmentIds = [...(old.attachmentIds || [])];
+      next.incomingIds = [...(old.incomingIds || [])];
+      await db.drafts.put(next);
+      await db.draftVersions
+        .where({ draftId, version: next.version })
+        .modify({
+          attachmentIds: next.attachmentIds,
+          incomingIds: next.incomingIds,
+        });
+    }
+    return next;
+  });
 }

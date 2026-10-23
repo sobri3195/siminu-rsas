@@ -1,3 +1,4 @@
+import { mailSchemas } from "./mailSchemas";
 import { z } from "zod";
 import { dispositionSchemas } from "./dispositionSchemas";
 import { notaSchemas } from "./notaSchemas";
@@ -98,6 +99,7 @@ const task = base.extend({
   createdAt: z.iso.datetime(),
 });
 export const schemas = {
+  ...mailSchemas,
   ...stage3Schemas,
   ...notaSchemas,
   ...dispositionSchemas,

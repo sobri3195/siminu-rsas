@@ -50,6 +50,9 @@ test("naskah offline autosave, reload, paraf berjenjang, DOCX editable dan inval
   await expect(page.getByLabel("Isi", { exact: true })).toHaveValue(
     "Teks naskah dapat diedit di pengolah kata.",
   );
+  await page
+    .getByLabel("Identitas penandatangan", { exact: true })
+    .fill("Pejabat (contoh)");
   for (const uid of ["user-1", "user-2"]) {
     await page.getByLabel("Pemeriksa aktif sesuai unit").selectOption(uid);
     await page
@@ -76,6 +79,13 @@ test("naskah offline autosave, reload, paraf berjenjang, DOCX editable dan inval
   const xml = strFromU8(unzipSync(data)["word/document.xml"]);
   expect(xml).toContain("Teks naskah dapat diedit di pengolah kata.");
   expect(xml).toContain("w:t");
+  await expect(page.getByLabel("Isi", { exact: true })).toBeDisabled();
+  await page
+    .getByLabel("Catatan bagian / alasan revisi terbit", { exact: true })
+    .fill("Perbaikan isi versi baru");
+  await page
+    .getByRole("button", { name: "Buat revisi surat terbit", exact: true })
+    .click();
   await page
     .getByLabel("Isi", { exact: true })
     .fill("Isi berubah setelah persetujuan.");
@@ -84,7 +94,7 @@ test("naskah offline autosave, reload, paraf berjenjang, DOCX editable dan inval
     .toBe("Draf");
   expect((await all(page, "drafts"))[0].approvedVersion).toBeUndefined();
   await expect(
-    page.getByText("Persetujuan tidak berlaku", { exact: false }),
+    page.getByText("Revisi diterbitkan", { exact: false }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Pratinjau A4" }).click();
   await page.emulateMedia({ media: "print" });

@@ -17,6 +17,7 @@ export function Outgoing() {
   const allOutgoing = useLiveQuery(() => db.outgoing.toArray()) || [];
   const list = allOutgoing.filter(
     (l) =>
+      !l.integrated &&
       (!params.get("from") ||
         l.createdAt.slice(0, 10) >= params.get("from")!) &&
       (!params.get("to") || l.createdAt.slice(0, 10) <= params.get("to")!),
@@ -49,7 +50,7 @@ export function Outgoing() {
       <div className="page-heading">
         <div>
           <p className="eyebrow">KORESPONDENSI</p>
-          <h1>Surat Keluar</h1>
+          <h2>Register lama / surat manual</h2>
           <p className="muted">
             Dari penyusunan draf hingga pencatatan pengiriman.
           </p>
@@ -130,7 +131,7 @@ export function Outgoing() {
                     <Badge>{l.status}</Badge>
                   </td>
                   <td>
-                    {!l.noteId && idx < 5 && allowed && (
+                    {!l.noteId && !l.draftId && idx < 5 && allowed && (
                       <button
                         onClick={() =>
                           run(async () => {

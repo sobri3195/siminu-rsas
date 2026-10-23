@@ -1,3 +1,4 @@
+import { mailSchemas } from "./mailSchemas";
 import Dexie from "dexie";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 import { z } from "zod";
@@ -14,6 +15,12 @@ const MAX_TOTAL = 150 * 1024 * 1024,
   MAX_FILE = 30 * 1024 * 1024,
   MAX_COUNT = 2500;
 const fileSchema = z.object({
+  title: z.string().optional(),
+  caption: z.string().optional(),
+  order: z.number().optional(),
+  size: z.number().optional(),
+  addedAt: z.iso.datetime().optional(),
+  replacesId: z.string().optional(),
   id: z.string().min(1),
   path: z.string(),
   name: z.string(),
@@ -29,6 +36,7 @@ const manifestSchema = z.object({
     z.literal(3),
     z.literal(4),
     z.literal(5),
+    z.literal(6),
   ]),
   appVersion: z.string(),
   createdAt: z.iso.datetime(),
@@ -44,9 +52,16 @@ export type PackageManifest = z.infer<typeof manifestSchema>;
 export type Metadata = z.infer<typeof backupSchema>["tables"];
 export interface ValidatedPackage {
   preview?: Record<string, string | undefined>;
+  numberConflicts?: string[];
   manifest: PackageManifest;
   tables: Metadata;
   attachments: {
+    title?: string;
+    caption?: string;
+    order?: number;
+    size?: number;
+    addedAt?: string;
+    replacesId?: string;
     id: string;
     letterId: string;
     name: string;
@@ -87,6 +102,12 @@ export async function createFullBackup(database: AppDatabase = db) {
     const path = `files/${String(index).padStart(6, "0")}.bin`;
     entries[path] = bytes;
     files.push({
+      title: a.title,
+      caption: a.caption,
+      order: a.order,
+      size: a.size,
+      addedAt: a.addedAt,
+      replacesId: a.replacesId,
       id: a.id,
       letterId: a.letterId,
       name: a.name,
@@ -98,8 +119,8 @@ export async function createFullBackup(database: AppDatabase = db) {
   }
   const manifest: PackageManifest = {
     format: "siminu-rsas-backup",
-    schemaVersion: 5,
-    appVersion: "5.0.0",
+    schemaVersion: 6,
+    appVersion: "6.0.0",
     createdAt: now(),
     counts: Object.fromEntries(
       Object.entries(snapshot.tables).map(([k, v]) => [k, v.length]),
@@ -195,6 +216,8 @@ export function validateReferences(
         throw Error(`Lampiran surat hilang atau pemilik tidak cocok: ${aid}`);
   for (const l of tables.outgoing) {
     ref("letters", l.incomingId as string | undefined);
+    for (const lid of (l.incomingIds as string[] | undefined) || [])
+      ref("letters", lid);
     ref("drafts", l.draftId as string | undefined);
     ref("notes", l.noteId as string | undefined);
     for (const aid of (l.attachmentIds as string[] | undefined) || [])
@@ -423,6 +446,78 @@ export function validateReferences(
   for (const v of tables.draftDecisions) {
     ref("drafts", v.draftId);
     ref("users", v.userId);
+    if (v.snapshot) {
+      for (const lid of v.snapshot.incomingIds) ref("letters", lid);
+      for (const aid of v.snapshot.attachmentIds)
+        if (!files.has(aid)) throw Error("Lampiran snapshot keputusan hilang.");
+    }
+  }
+  for (const a of tables.replyAssignments) {
+    ref("letters", a.id);
+    ref("users", a.userId);
+    if (a.decision === "Perlu balasan") {
+      ref("users", a.picId);
+      ref("units", a.unitId);
+      ref("users", a.reviewerId);
+      if (!a.deadline || !a.picId || !a.unitId || !a.reviewerId)
+        throw Error("Penugasan balasan tidak lengkap.");
+    }
+  }
+  for (const d of tables.drafts) {
+    for (const lid of (d.incomingIds as string[] | undefined) || [])
+      ref("letters", lid);
+    ref("drafts", d.supersedesId as string | undefined);
+  }
+  for (const v of tables.draftVersions) {
+    for (const lid of v.incomingIds || []) ref("letters", lid);
+    for (const aid of v.attachmentIds || [])
+      if (!files.has(aid)) throw Error("Lampiran versi historis hilang.");
+  }
+  for (const l of tables.mailLinks) {
+    ref("letters", l.fromId);
+    ref("letters", l.toId);
+    ref("users", l.userId);
+    if (l.fromId === l.toId) throw Error("Hubungan surat ke dirinya sendiri.");
+  }
+  for (const n of tables.mailNumbers) {
+    ref("drafts", n.draftId);
+    if (
+      !tables.draftVersions.some(
+        (v) => v.draftId === n.draftId && v.version === n.version,
+      )
+    )
+      throw Error("Versi pemilik nomor hilang.");
+    ref("outgoing", n.outgoingId);
+    ref("users", n.userId);
+    const o = tables.outgoing.find((o) => o.id === n.outgoingId);
+    if (
+      !o ||
+      o.number !== n.id ||
+      o.draftId !== n.draftId ||
+      o.draftVersion !== n.version
+    )
+      throw Error("Register nomor tidak cocok dengan pemilik.");
+    if (tables.noteNumbers.some((r) => r.id === n.id))
+      throw Error("Konflik nomor nota dan surat.");
+  }
+  for (const t of tables.dispatchTargets) ref("outgoing", t.outgoingId);
+  for (const d of tables.dispatches) {
+    ref("dispatchTargets", d.targetId);
+    ref("outgoing", d.outgoingId);
+    ref("users", d.userId);
+    if (
+      tables.dispatchTargets.find((t) => t.id === d.targetId)?.outgoingId !==
+      d.outgoingId
+    )
+      throw Error("Tujuan pengiriman tidak cocok.");
+    if (
+      (d.status === "Diterima" && !d.receivedAt) ||
+      (d.receivedAt && d.receivedAt < d.sentAt)
+    )
+      throw Error("Tanggal penerimaan tidak konsisten.");
+    for (const aid of [...d.proofIds, ...d.receiptIds])
+      if (!files.has(aid) || owners.get(aid) !== d.outgoingId)
+        throw Error("Bukti pengiriman/penerimaan hilang.");
   }
   const numberKeys = tables.noteNumbers.map((r) => r.id);
   if (new Set(numberKeys).size !== numberKeys.length)
@@ -660,6 +755,8 @@ export async function validateFullBackup(
     for (const name of Object.keys(stage3Schemas)) raw.tables[name] ??= [];
   if (manifest.schemaVersion < 4)
     for (const name of Object.keys(notaSchemas)) raw.tables[name] ??= [];
+  if (manifest.schemaVersion < 6)
+    for (const name of Object.keys(mailSchemas)) raw.tables[name] ??= [];
   if (manifest.schemaVersion < 5)
     for (const name of Object.keys(dispositionSchemas)) raw.tables[name] ??= [];
   const tables = backupSchema.parse(raw).tables;
@@ -668,7 +765,8 @@ export async function validateFullBackup(
       (manifest.counts[name] ??
         ((manifest.schemaVersion === 2 && name in stage3Schemas) ||
         (manifest.schemaVersion < 4 && name in notaSchemas) ||
-        (manifest.schemaVersion < 5 && name in dispositionSchemas)
+        (manifest.schemaVersion < 5 && name in dispositionSchemas) ||
+        (manifest.schemaVersion < 6 && name in mailSchemas)
           ? 0
           : undefined)) !== tables[name].length
     )
@@ -694,6 +792,12 @@ export async function validateFullBackup(
       letterId: f.letterId,
       name: f.name,
       type: f.type,
+      title: f.title,
+      caption: f.caption,
+      order: f.order,
+      size: f.size,
+      addedAt: f.addedAt,
+      replacesId: f.replacesId,
       blob: new Blob([Uint8Array.from(bytes)], { type: f.type }),
     });
   }
@@ -742,6 +846,37 @@ export async function findConflicts(pkg: ValidatedPackage) {
     throw Error(
       "Data lokal berubah setelah ringkasan dibuka. Pilih ulang paket untuk meninjau konflik terbaru.",
     );
+  const localOutgoing = await db.outgoing.toArray(),
+    localMailNumbers = await db.mailNumbers.toArray(),
+    localNoteNumbers = await db.noteNumbers.toArray();
+  pkg.numberConflicts = [];
+  for (const row of pkg.tables.outgoing) {
+    const owner = localOutgoing.find(
+      (o) => o.number && o.number === row.number && o.id !== row.id,
+    );
+    const reserved = localMailNumbers.find(
+      (n) => n.id === row.number && n.outgoingId !== row.id,
+    );
+    const note = localNoteNumbers.find(
+      (n) => n.id === row.number && n.noteId !== row.noteId,
+    );
+    if (owner || reserved || note)
+      pkg.numberConflicts.push(
+        `${row.number}: pemilik lokal ${owner?.id || reserved?.outgoingId || note?.noteId}, impor ${row.id}`,
+      );
+  }
+  for (const n of pkg.tables.noteNumbers) {
+    const m = localMailNumbers.find((r) => r.id === n.id),
+      local = localNoteNumbers.find(
+        (r) => r.id === n.id && r.noteId !== n.noteId,
+      ),
+      o = localOutgoing.find((r) => r.number === n.id && r.noteId !== n.noteId);
+    if (m || local || o)
+      pkg.numberConflicts.push(
+        `${n.id}: pemilik nomor lokal berbeda dengan nota impor ${n.noteId}`,
+      );
+  }
+  pkg.numberConflicts = [...new Set(pkg.numberConflicts)];
   pkg.preview = snapshot;
   return conflicts;
 }
@@ -753,6 +888,12 @@ export async function restoreFullBackup(
   let restored = 0,
     skipped = 0;
   const conflicts = await findConflicts(pkg);
+  if (mode === "merge" && pkg.numberConflicts?.length)
+    throw Error(
+      "Konflik nomor antarperangkat: " +
+        pkg.numberConflicts.join("; ") +
+        ". Perbaiki paket sumber atau pilih penggantian seluruh data dengan cadangan otomatis.",
+    );
   for (const c of conflicts)
     if (mode === "merge" && !choices[`${c.table}:${c.id}`])
       throw Error("Pilih penyelesaian untuk setiap konflik.");

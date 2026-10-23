@@ -29,6 +29,8 @@ export interface Position {
   userId?: string;
 }
 export interface IncomingLetter {
+  institution?: string;
+  physicalLocation?: string;
   targetUnitId?: string;
   labels?: string[];
   receivedAt?: string;
@@ -60,6 +62,10 @@ export interface IncomingLetter {
   createdAt: string;
 }
 export interface OutgoingLetter {
+  incomingIds?: string[];
+  integrated?: boolean;
+  cancelledReason?: string;
+  physicalLocation?: string;
   noteId?: string;
   noteVersion?: number;
   agenda?: string;
@@ -83,6 +89,12 @@ export interface OutgoingLetter {
   createdAt: string;
 }
 export interface Attachment {
+  title?: string;
+  caption?: string;
+  order?: number;
+  size?: number;
+  addedAt?: string;
+  replacesId?: string;
   id: string;
   letterId: string;
   name: string;
@@ -246,6 +258,7 @@ export interface ActivityLog {
   createdAt: string;
 }
 export interface AppSettings {
+  mailNumberPattern?: string;
   id: string;
   official: string;
   rank: string;
@@ -279,3 +292,5 @@ export * from "./stage3";
 export * from "./nota";
 
 export * from "./disposition";
+
+export * from "./mail";

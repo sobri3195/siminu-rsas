@@ -1,3 +1,4 @@
+import { assertReplyClosed } from "./mail";
 import { z } from "zod";
 import { db } from "../storage/db";
 import type { IncomingLetter } from "../types";
@@ -14,6 +15,8 @@ type Metadata = Pick<
   | "urgency"
   | "classification"
   | "summary"
+  | "institution"
+  | "physicalLocation"
 >;
 export async function correctLetter(
   letterId: string,
@@ -75,36 +78,33 @@ export async function cancelLetter(
   author: string,
 ) {
   if (!reason.trim()) throw Error("Alasan penutupan wajib diisi.");
-  await db.transaction(
-    "rw",
-    [db.letters, db.tasks, db.dispositions, db.activities],
-    async () => {
-      const letter = await db.letters.get(letterId);
-      if (!letter) throw Error("Surat tidak ditemukan.");
-      await db.dispositions
-        .where({ letterId })
-        .modify({ cancelled: true, reason });
-      await db.tasks.where({ letterId }).modify((t) => {
-        t.previousStatus = t.status;
-        t.status = "Dibatalkan";
-      });
-      await db.letters.update(letterId, {
-        status: "Diarsipkan",
-        cancelledReason: reason,
-        revision: (letter.revision || 1) + 1,
-        updatedAt: now(),
-      });
-      await db.activities.add({
-        id: id(),
-        letterId,
-        text: "Penutupan administratif beralasan: " + reason,
-        author,
-        createdAt: now(),
-        before: letter,
-        after: { status: "Diarsipkan", cancelledReason: reason },
-      });
-    },
-  );
+  await db.transaction("rw", db.tables, async () => {
+    await assertReplyClosed(letterId);
+    const letter = await db.letters.get(letterId);
+    if (!letter) throw Error("Surat tidak ditemukan.");
+    await db.dispositions
+      .where({ letterId })
+      .modify({ cancelled: true, reason });
+    await db.tasks.where({ letterId }).modify((t) => {
+      t.previousStatus = t.status;
+      t.status = "Dibatalkan";
+    });
+    await db.letters.update(letterId, {
+      status: "Diarsipkan",
+      cancelledReason: reason,
+      revision: (letter.revision || 1) + 1,
+      updatedAt: now(),
+    });
+    await db.activities.add({
+      id: id(),
+      letterId,
+      text: "Penutupan administratif beralasan: " + reason,
+      author,
+      createdAt: now(),
+      before: letter,
+      after: { status: "Diarsipkan", cancelledReason: reason },
+    });
+  });
 }
 export async function toggleFavorite(letterId: string) {
   await db.transaction("rw", db.letters, async () => {

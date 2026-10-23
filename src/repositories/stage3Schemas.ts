@@ -7,6 +7,8 @@ const kind = z.enum([
   "Surat pengantar",
   "Surat tugas",
   "Laporan kegiatan",
+  "Surat dinas",
+  "Template kosong",
 ]);
 export const stage3Schemas = {
   templates: base.extend({
@@ -17,6 +19,9 @@ export const stage3Schemas = {
     updatedAt: z.iso.datetime(),
   }),
   drafts: base.extend({
+    integrated: z.boolean().optional(),
+    incomingIds: z.array(z.string().min(1)).optional(),
+    supersedesId: z.string().optional(),
     templateId: z.string(),
     kind,
     content: contentSchema,
@@ -33,12 +38,16 @@ export const stage3Schemas = {
       "Persetujuan",
       "Penomoran",
       "Pengiriman",
+      "Tercatat dikirim",
+      "Diarsipkan",
     ]),
     attachmentIds: z.array(z.string()),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
   }),
   draftVersions: base.extend({
+    attachmentIds: z.array(z.string()).optional(),
+    incomingIds: z.array(z.string().min(1)).optional(),
     draftId: z.string(),
     version: z.number().int().positive(),
     content: contentSchema,
@@ -47,6 +56,24 @@ export const stage3Schemas = {
     createdAt: z.iso.datetime(),
   }),
   draftDecisions: base.extend({
+    section: z.string().optional(),
+    snapshot: z
+      .object({
+        content: contentSchema,
+        attachmentIds: z.array(z.string()),
+        incomingIds: z.array(z.string().min(1)),
+        stage: z.enum([
+          "Draf",
+          "Pemeriksaan",
+          "Perbaikan",
+          "Persetujuan",
+          "Penomoran",
+          "Pengiriman",
+          "Tercatat dikirim",
+          "Diarsipkan",
+        ]),
+      })
+      .optional(),
     draftId: z.string(),
     version: z.number().int().positive(),
     action: z.enum([
@@ -57,6 +84,9 @@ export const stage3Schemas = {
       "Diberi nomor",
       "Persetujuan tidak berlaku",
       "Dipulihkan",
+      "Catatan pemeriksaan",
+      "Revisi diterbitkan",
+      "Diarsipkan",
     ]),
     userId: z.string(),
     note: z.string(),
