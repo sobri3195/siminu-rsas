@@ -89,6 +89,7 @@ export async function searchLocal(query: string): Promise<SearchResult[]> {
     letters: await db.letters.toArray(),
     outgoing: await db.outgoing.toArray(),
     drafts: await db.drafts.toArray(),
+    notes: await db.notes.toArray(),
     dispositions: await db.dispositions.toArray(),
     reports: await db.reports.toArray(),
     tasks: await db.tasks.toArray(),
@@ -112,6 +113,23 @@ export async function searchLocal(query: string): Promise<SearchResult[]> {
       text: [l.number, l.subject, l.recipient].join(" · "),
       kind: "Surat keluar",
       href: "/surat-keluar",
+    });
+  for (const n of all.notes)
+    rows.push({
+      id: "note:" + n.id,
+      title: n.content.subject,
+      text: [
+        n.officialNumber,
+        n.content.to,
+        n.content.from,
+        ...n.content.basis,
+        n.content.opening,
+        n.content.discussion,
+        n.content.request,
+        n.content.closing,
+      ].join(" · "),
+      kind: "Nota Dinas",
+      href: "/nota-dinas/" + n.id,
     });
   for (const d of all.drafts)
     rows.push({
@@ -173,9 +191,11 @@ export async function searchLocal(query: string): Promise<SearchResult[]> {
         ? "/surat-masuk/" + letter.id
         : all.minutes.some((m) => m.id === file.letterId)
           ? "/notulen/" + file.letterId
-          : all.drafts.some((d) => d.id === file.letterId)
-            ? "/naskah/" + file.letterId
-            : "/surat-keluar",
+          : all.notes.some((n) => n.id === file.letterId)
+            ? "/nota-dinas/" + file.letterId
+            : all.drafts.some((d) => d.id === file.letterId)
+              ? "/naskah/" + file.letterId
+              : "/surat-keluar",
     });
   }
   return rows.filter((r) =>

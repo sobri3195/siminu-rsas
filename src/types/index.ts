@@ -58,6 +58,8 @@ export interface IncomingLetter {
   createdAt: string;
 }
 export interface OutgoingLetter {
+  noteId?: string;
+  noteVersion?: number;
   agenda?: string;
   documentDate?: string;
   draftId?: string;
@@ -233,3 +235,4 @@ export interface CatalogItem {
   order: number;
 }
 export * from "./stage3";
+export * from "./nota";

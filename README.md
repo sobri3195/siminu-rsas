@@ -2,6 +2,10 @@
 
 Sistem Informasi Manajemen Administrasi Umum RSAU Prof. dr. Abdulrachman Saleh. Frontend React + Vite + TypeScript untuk uji satu perangkat, tanpa backend, API key, CDN fungsi utama, atau layanan berbayar. Tema dan alur aplikasi sebelumnya dipertahankan. Lihat [inventaris perubahan](docs/INVENTORY.md).
 
+## Modul Nota Dinas (v4)
+
+Menu Nota Dinas menyediakan editor terstruktur, tujuh template isi, profil penandatangan per unit, autosave/versi, pemeriksaan simulasi, revisi terkunci, nomor transaksional, lampiran gambar, DOCX, cetak A4, Surat Keluar, dan arsip. Lihat [panduan Nota Dinas](docs/NOTA_DINAS.md). Format mengikuti struktur teks RSAS yang diberikan dan dapat diatur; kesesuaiannya dengan contoh resmi masih perlu diperiksa pengguna.
+
 ## Pengembangan tahap 3
 
 Pembuat Naskah menyediakan Nota dinas, Surat undangan, Surat pengantar, Surat tugas dan Laporan kegiatan dengan draf otomatis, DOCX teks yang dapat diedit, pemeriksaan/paraf berjenjang dan riwayat versi. Perubahan isi membatalkan persetujuan untuk versi baru. Template awal **generik**, bukan format resmi.
@@ -50,7 +54,7 @@ Agenda mencatat waktu, PIC, lokasi dan surat terkait. Pengingat dihitung saat ap
 
 ## Pusat Data Lokal
 
-**Cadangan lengkap ZIP** berisi metadata JSON, manifest skema 3 (kompatibel paket skema 2), versi aplikasi, waktu ekspor, jumlah entitas, nama/ukuran berkas dan SHA-256, serta byte asli semua lampiran surat, bukti hasil dan surat keluar. Tidak mengekspor blob URL. Ekspor metadata JSON lama tetap tersedia sebagai pelengkap tanpa isi berkas.
+**Cadangan lengkap ZIP** berisi metadata JSON, manifest skema 4 (kompatibel paket skema 2/3), versi aplikasi, waktu ekspor, jumlah entitas, nama/ukuran berkas dan SHA-256, serta byte asli semua lampiran surat, bukti hasil dan surat keluar. Tidak mengekspor blob URL. Ekspor metadata JSON lama tetap tersedia sebagai pelengkap tanpa isi berkas.
 
 Pemulihan memeriksa format/versi, struktur ZIP, jumlah/ukuran, ID unik, referensi, hierarki dan checksum sebelum menulis. Batas saat ini: paket 150 MB, per berkas 30 MB, maksimal 2.500 lampiran. Untuk Gabungkan, selesaikan setiap konflik ID dengan pilihan data lokal atau impor. Data yang berubah setelah pratinjau meminta peninjauan ulang. Untuk Ganti seluruh data, paket pemulihan otomatis disimpan dalam transaksi yang sama sebelum mengganti data aktif dan dapat diunduh. Pemulihan atomik menampilkan jumlah berhasil, dilewati dan konflik. Mode database lain tidak disentuh.
 
@@ -64,7 +68,7 @@ Vercel: framework Vite, build `npm run build`, output `dist`. `vercel.json` meny
 
 ## Bukti verifikasi dan batasan
 
-Tes repository memeriksa alur multiunit/tembusan/perbaikan, pembatalan/riwayat, delegasi siklik, agenda bersamaan, konflik revisi, migrasi v1→v2→v3 beserta Blob, ZIP/checksum/referensi rusak, pemulihan/konflik/cadangan otomatis dan CSV formula.
+Tes repository memeriksa alur multiunit/tembusan/perbaikan, pembatalan/riwayat, delegasi siklik, agenda bersamaan, konflik revisi, migrasi v1→v2→v3→v4 beserta Blob, ZIP/checksum/referensi rusak, pemulihan/konflik/cadangan otomatis dan CSV formula.
 
 Skenario Chromium memakai build produksi: alur surat hingga arsip; offline dengan koneksi browser dimatikan; URL detail langsung, pencarian, surat/lampiran baru, disposisi, progres, cetak dan ZIP saat offline; restart browser dengan profil sama; dua tab; simulasi quota; pemulihan ZIP melalui UI; reset contoh yang menjaga data lokal; pembaruan service worker saat draf terbuka; desktop, tablet, keyboard, dan 360 px. Pengujian cetak menghasilkan PDF normal dan catatan panjang; ini bukan pengujian semua printer fisik.
 

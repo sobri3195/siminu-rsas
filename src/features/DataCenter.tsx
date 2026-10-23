@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { ensureNota } from "../repositories/nota";
 import { ensureTemplates } from "../repositories/drafts";
 import { db, dataMode } from "../storage/db";
 import { useApp } from "../app/context";
@@ -41,6 +42,12 @@ export function DataCenter() {
       ...(await db.reports.toArray()).flatMap((r) => r.attachmentIds),
       ...(await db.minutes.toArray()).flatMap((r) => r.attachmentIds),
       ...(await db.drafts.toArray()).flatMap((r) => r.attachmentIds),
+      ...(await db.notes.toArray()).flatMap((r) =>
+        r.content.attachments.map((a) => a.id),
+      ),
+      ...(await db.noteVersions.toArray()).flatMap((r) =>
+        r.content.attachments.map((a) => a.id),
+      ),
     ];
     setMissing(ids.filter((id) => !files.has(id)));
   };
@@ -166,7 +173,7 @@ export function DataCenter() {
         <section className="panel">
           <h2>Pulihkan cadangan</h2>
           <p>
-            Validasi format, skema v3 (kompatibel paket v2), jumlah/ukuran,
+            Validasi format, skema v4 (kompatibel paket v2/v3), jumlah/ukuran,
             referensi dan SHA-256 dilakukan sebelum database diubah. Batas paket
             150 MB, 30 MB per berkas.
           </p>
@@ -281,6 +288,7 @@ export function DataCenter() {
               void execute(async () => {
                 const result = await restoreFullBackup(pkg, mode, choices);
                 if (pkg.manifest.schemaVersion === 2) await ensureTemplates();
+                await ensureNota();
                 setMessage(
                   `Pemulihan selesai: ${result.restored} berhasil, ${result.skipped} dilewati, ${result.conflicts} konflik ditangani.`,
                 );

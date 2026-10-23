@@ -41,6 +41,9 @@ import { LeadershipAgenda } from "../features/LeadershipAgenda";
 import { Minutes } from "../features/Minutes";
 import { Cases } from "../features/Cases";
 import { Drafting, DraftEditor } from "../features/Drafting";
+import { NotaDinas } from "../features/NotaDinas";
+import { NoteEditor } from "../features/NoteEditor";
+import { ensureNota } from "../repositories/nota";
 import { ensureTemplates } from "../repositories/drafts";
 import { ensureCatalogs } from "../repositories/catalogs";
 import { refreshReminders } from "../repositories/reminders";
@@ -60,6 +63,7 @@ const nav = [
   ["/surat-masuk", "Surat Masuk", Mail],
   ["/disposisi", "Disposisi", GitBranch],
   ["/tugas", "Tugas Saya", ClipboardCheck],
+  ["/nota-dinas", "Nota Dinas", Mail],
   ["/naskah", "Pembuat Naskah", Mail],
   ["/surat-keluar", "Surat Keluar", Send],
   ["/agenda", "Agenda", CalendarDays],
@@ -139,6 +143,7 @@ function App() {
     seed(dataMode === "demo")
       .then(ensureCatalogs)
       .then(ensureTemplates)
+      .then(ensureNota)
       .then(refreshReminders)
       .then(() => setReady(true))
       .catch((e) =>
@@ -317,6 +322,8 @@ function App() {
               <Route path="/surat-masuk/:id" element={<Detail />} />
               <Route path="/disposisi" element={<Letters dispositions />} />
               <Route path="/tugas" element={<Tasks />} />
+              <Route path="/nota-dinas" element={<NotaDinas />} />
+              <Route path="/nota-dinas/:id" element={<NoteEditor />} />
               <Route path="/naskah" element={<Drafting />} />
               <Route path="/naskah/:id" element={<DraftEditor />} />
               <Route path="/surat-keluar" element={<Outgoing />} />
@@ -350,7 +357,7 @@ function App() {
               <span>
                 SIMINU RSAS · Administrasi tertib, pelayanan lebih baik.
               </span>
-              <span>Frontend demo · v3.0</span>
+              <span>Frontend demo · v4.0</span>
             </footer>
           </main>
         </div>
