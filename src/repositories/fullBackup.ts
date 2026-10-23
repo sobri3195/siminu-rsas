@@ -3,6 +3,10 @@ import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 import { z } from "zod";
 import { db, type AppDatabase } from "../storage/db";
 import { backupSchema, schemas } from "./backup";
+import {
+  dispositionSchemas,
+  dispositionContentSchema,
+} from "./dispositionSchemas";
 import { notaSchemas } from "./notaSchemas";
 import { stage3Schemas } from "./stage3Schemas";
 import { id, now } from "../utils";
@@ -20,7 +24,12 @@ const fileSchema = z.object({
 });
 const manifestSchema = z.object({
   format: z.literal("siminu-rsas-backup"),
-  schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4)]),
+  schemaVersion: z.union([
+    z.literal(2),
+    z.literal(3),
+    z.literal(4),
+    z.literal(5),
+  ]),
   appVersion: z.string(),
   createdAt: z.iso.datetime(),
   counts: z.record(z.string(), z.number().int().nonnegative()),
@@ -89,8 +98,8 @@ export async function createFullBackup(database: AppDatabase = db) {
   }
   const manifest: PackageManifest = {
     format: "siminu-rsas-backup",
-    schemaVersion: 4,
-    appVersion: "4.0.0",
+    schemaVersion: 5,
+    appVersion: "5.0.0",
     createdAt: now(),
     counts: Object.fromEntries(
       Object.entries(snapshot.tables).map(([k, v]) => [k, v.length]),
@@ -225,6 +234,161 @@ export function validateReferences(
     ref("units", t.unitId);
     ref("users", t.userId);
     ref("tasks", t.parentId as string | undefined);
+  }
+  for (const d of tables.dispositions.filter((d) => d.digital)) {
+    const c = dispositionContentSchema.parse({
+      letterId: d.letterId,
+      giverId: d.issuerId,
+      giver: d.giver,
+      giverPosition: d.issuerPosition,
+      mode: d.mode,
+      recipients: d.recipients,
+      instructions: d.instructions,
+      notes: d.notes,
+      deadline: d.deadline,
+      reportRequired: d.reportRequired,
+      review: d.review,
+      reviewerId: d.reviewerId,
+    });
+    ref("users", c.giverId);
+    ref("users", c.reviewerId);
+    if (!Number.isInteger(d.version) || !Number.isInteger(d.revision))
+      throw Error("Nomor versi/revisi disposisi digital tidak valid.");
+    if (
+      new Set(c.recipients.map((r) => r.userId)).size !== c.recipients.length ||
+      new Set(c.recipients.map((r) => r.id)).size !== c.recipients.length
+    )
+      throw Error("Penerima disposisi ganda.");
+    if (
+      c.mode === "Untuk diketahui" &&
+      c.recipients.some((r) => r.kind !== "Tembusan")
+    )
+      throw Error("Disposisi informasi memiliki kewajiban.");
+    if (
+      !tables.dispositionVersions.some(
+        (v) =>
+          v.dispositionId === d.id &&
+          v.version === d.version &&
+          v.snapshot.giver === d.giver &&
+          v.snapshot.issuerId === d.issuerId,
+      )
+    )
+      throw Error("Snapshot disposisi terkini hilang/tidak cocok.");
+    for (const r of c.recipients) {
+      ref("positions", r.positionId);
+      if (
+        !tables.recipientReceipts.some(
+          (x) =>
+            x.dispositionId === d.id &&
+            x.recipientId === r.id &&
+            x.userId === r.userId &&
+            !x.retired,
+        )
+      )
+        throw Error("Status baca penerima hilang.");
+    }
+  }
+  const dvKeys = tables.dispositionVersions.map(
+    (v) => v.dispositionId + ":" + v.version,
+  );
+  if (new Set(dvKeys).size !== dvKeys.length)
+    throw Error("Versi disposisi ganda.");
+  for (const v of tables.dispositionVersions) {
+    ref("dispositions", v.dispositionId);
+    ref("users", v.userId);
+    ref("users", v.snapshot.issuerId as string);
+    ref("users", v.snapshot.reviewerId as string);
+    ref("letters", v.snapshot.letterId);
+    if (v.snapshot.id !== v.dispositionId || v.snapshot.version !== v.version)
+      throw Error("Identitas snapshot disposisi tidak cocok.");
+    for (const r of v.snapshot.recipients) {
+      ref("users", r.userId);
+      ref("units", r.unitId);
+      ref("positions", r.positionId);
+    }
+  }
+  for (const r of tables.recipientReceipts) {
+    ref("dispositions", r.dispositionId);
+    ref("users", r.userId);
+    ref("units", r.unitId);
+    if (
+      !tables.dispositionVersions.some(
+        (v) =>
+          v.dispositionId === r.dispositionId &&
+          v.snapshot.recipients.some(
+            (p) => p.id === r.recipientId && p.userId === r.userId,
+          ),
+      )
+    )
+      throw Error("Sumber penerima/status baca tidak cocok.");
+  }
+  for (const draft of tables.dispositionDrafts) {
+    ref("letters", draft.content.letterId);
+    ref("users", draft.authorId);
+    ref("users", draft.content.giverId);
+    ref("users", draft.content.reviewerId);
+    ref("dispositions", draft.sourceId);
+    ref("dispositions", draft.publishedId);
+    for (const r of draft.content.recipients) {
+      ref("users", r.userId);
+      ref("units", r.unitId);
+      ref("positions", r.positionId);
+    }
+  }
+  for (const o of tables.dispositionOutputs) {
+    ref("dispositions", o.dispositionId);
+    ref("tasks", o.taskId);
+    ref("users", o.userId);
+    ref(o.kind, o.targetId);
+    if (
+      o.taskId &&
+      !tables.tasks.some(
+        (t) => t.id === o.taskId && t.dispositionId === o.dispositionId,
+      )
+    )
+      throw Error("Tugas keluaran tidak sesuai disposisi.");
+    const target = tables[o.kind].find((t) => t.id === o.targetId);
+    if (
+      o.kind === "notes" &&
+      target &&
+      "content" in target &&
+      (target.content as { dispositionId?: string }).dispositionId !==
+        o.dispositionId
+    )
+      throw Error("Referensi Nota Dinas keluaran tidak cocok.");
+  }
+  for (const t of tables.tasks.filter((t) => t.digital)) {
+    ref("users", t.issuerId as string);
+    ref("users", t.reviewerId as string);
+    const d = tables.dispositions.find((d) => d.id === t.dispositionId);
+    if (!d?.digital || d.letterId !== t.letterId)
+      throw Error("Sumber tugas digital tidak sesuai.");
+    if (!Number.isInteger(t.revision))
+      throw Error("Revisi tugas digital tidak valid.");
+    if (
+      t.parentId &&
+      !tables.tasks.some(
+        (p) =>
+          p.id === t.parentId &&
+          p.dispositionId === t.dispositionId &&
+          p.letterId === t.letterId,
+      )
+    )
+      throw Error("Induk delegasi tidak sesuai.");
+    if (
+      !t.parentId &&
+      !tables.dispositionVersions.some(
+        (v) =>
+          v.dispositionId === t.dispositionId &&
+          v.snapshot.recipients.some(
+            (r) =>
+              r.id === t.recipientId &&
+              r.userId === t.userId &&
+              r.kind !== "Tembusan",
+          ),
+      )
+    )
+      throw Error("Tugas wajib tidak sesuai penerima.");
   }
   for (const r of tables.reports) {
     ref("tasks", r.taskId);
@@ -430,8 +594,22 @@ export function validateReferences(
     ref("letters", row.letterId);
     ref("minutes", row.minutesId as string | undefined);
     ref("tasks", row.taskId as string | undefined);
+    ref("dispositions", row.dispositionId as string | undefined);
+    ref("users", row.userId as string | undefined);
+    if (
+      row.dispositionVersion &&
+      row.dispositionId &&
+      !tables.dispositionVersions.some(
+        (v) =>
+          v.dispositionId === row.dispositionId &&
+          v.version === row.dispositionVersion,
+      )
+    )
+      throw Error("Versi tindakan disposisi hilang.");
   }
   for (const e of tables.events) {
+    ref("dispositions", e.dispositionId as string | undefined);
+    ref("tasks", e.taskId as string | undefined);
     ref("letters", e.letterId as string | undefined);
     ref("users", e.userId as string | undefined);
     ref("users", e.invitedUserId as string | undefined);
@@ -482,12 +660,15 @@ export async function validateFullBackup(
     for (const name of Object.keys(stage3Schemas)) raw.tables[name] ??= [];
   if (manifest.schemaVersion < 4)
     for (const name of Object.keys(notaSchemas)) raw.tables[name] ??= [];
+  if (manifest.schemaVersion < 5)
+    for (const name of Object.keys(dispositionSchemas)) raw.tables[name] ??= [];
   const tables = backupSchema.parse(raw).tables;
   for (const name of metadataTables)
     if (
       (manifest.counts[name] ??
         ((manifest.schemaVersion === 2 && name in stage3Schemas) ||
-        (manifest.schemaVersion < 4 && name in notaSchemas)
+        (manifest.schemaVersion < 4 && name in notaSchemas) ||
+        (manifest.schemaVersion < 5 && name in dispositionSchemas)
           ? 0
           : undefined)) !== tables[name].length
     )

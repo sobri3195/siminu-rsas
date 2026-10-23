@@ -1,4 +1,37 @@
-# Verifikasi terbaru — Nota Dinas v4 (23 Oktober 2026)
+# Verifikasi terbaru — Disposisi Digital v5 (23 Oktober 2026)
+
+Lingkungan: Node 24, Chromium Linux 154, build produksi Vite/PWA pada localhost. IndexedDB browser untuk pengujian UI; fake-indexeddb untuk repository.
+
+| Pemeriksaan                       | Hasil                                                                                                                                                                                |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TypeScript                        | Lolos                                                                                                                                                                                |
+| Build produksi dan precache lokal | Lolos; peringatan ukuran chunk/anotasi dependency tidak menghalangi build                                                                                                            |
+| Vitest                            | 50 tes lolos: 33 regresi dan 17 Disposisi Digital                                                                                                                                    |
+| Playwright                        | 21 skenario lolos: 17 regresi dan 4 Disposisi Digital                                                                                                                                |
+| Alur utama offline                | Draf/reload → terbit → URTU menerima/delegasi → pelaksana mengirim hasil → URTU mengonsolidasikan → SIMRS mengirim/perbaikan → pemeriksaan → selesai → arsip → ZIP/pemulihan         |
+| Penerima/status                   | Admin tidak menandai seluruh penerima membaca; baca terpisah dari tugas; tembusan belum membaca tidak menghalangi selesai                                                            |
+| Delegasi                          | Induk tetap bertanggung jawab; konsolidasi menunggu turunan; siklus/rantai pengguna ditolak                                                                                          |
+| Revisi/tenggat                    | Konflik tab mempertahankan input; alasan/versi/snapshot; penerima ditambah/dilepas; instruksi material meminta konfirmasi ulang; perpanjangan menyimpan nilai lama/baru              |
+| Pembatalan                        | Hanya tugas terbuka dibatalkan; hasil selesai, laporan lama dan byte bukti tetap                                                                                                     |
+| Agregat                           | Seluruh disposisi aktif diperhitungkan; arsip ditolak saat ada kewajiban terbuka; kewajiban yang dilepas dikecualikan                                                                |
+| Integrasi                         | Konsep Nota Dinas/agenda memerlukan konfirmasi dan memakai sumber idempoten; sumber tugas/disposisi tersimpan                                                                        |
+| Cadangan/migrasi                  | ZIP v5 memulihkan rantai delegasi, status baca, versi dan Blob; referensi rusak ditolak; paket v4 dan paket v2/v3 tetap diterima; migrasi v4→v5 mempertahankan surat/tugas/nota/Blob |
+| Cetak Chromium                    | Draf bertanda belum diterbitkan; normal dua halaman A4; catatan panjang empat halaman dengan penanda akhir, rincian penerima, dan blok tanda tangan utuh                             |
+| Mobile                            | 390 px; tab Dokumen/Disposisi, PDF lokal, dan kontrol dapat digunakan                                                                                                                |
+
+Skenario utama mematikan koneksi browser setelah cache siap dan mencatat **nol permintaan HTTP ke domain eksternal**. PDF/gambar/bukti disimpan lokal; byte bukti hasil dibandingkan dengan berkas yang dipilih setelah pemulihan ZIP.
+
+Cetak diperiksa secara visual serta dengan pdfinfo/pdftotext. Penanda akhir catatan panjang dan halaman rincian tetap ada, teks hitam A4, tanpa tanda tangan/stempel buatan. [Berkas contoh](../examples/README.md) disertakan untuk peninjauan.
+
+Masalah yang ditemukan dan diperbaiki saat pengujian: pratinjau PDF native browser menangkap klik ketika pengguna menggulir kembali ke kontrol dan berpindah tab mobile. Modul baru menggunakan PDF.js/worker lokal dan canvas, dengan buka/unduh asli. Pemeriksaan akhir semua skenario lolos. Tes juga disesuaikan agar menunggu URL draf setelah pembuatan asinkron dan mencocokkan label median yang lengkap.
+
+Belum dijalankan: pembandingan dengan Format Disposisi RSAS resmi (belum tersedia), printer fisik, Safari/iOS, Firefox, dan deployment HTTPS versi baru. PDF panjang diuji pada contoh yang disediakan, bukan semua panjang/format dokumen. Peran/persetujuan lokal adalah simulasi; riwayat bukan audit tahan perubahan; tidak ada sinkronisasi antarperangkat atau notifikasi terjamin ketika browser tertutup.
+
+Panduan reproduksi dan peran contoh: [DISPOSISI_DIGITAL.md](DISPOSISI_DIGITAL.md). Hasil pengujian tambahan berada pada test-results/ dan tidak masuk Git.
+
+---
+
+# Verifikasi Nota Dinas v4 (23 Oktober 2026)
 
 Lingkungan: Node 24, Chromium Linux 154, produksi Vite/PWA pada localhost, IndexedDB nyata untuk skenario browser dan fake-indexeddb untuk tes repository.
 

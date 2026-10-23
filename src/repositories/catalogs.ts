@@ -5,7 +5,23 @@ export async function ensureCatalogs() {
     "rw",
     [db.catalogs, db.letters, db.settings],
     async () => {
-      if (await db.catalogs.count()) return;
+      if (await db.catalogs.count()) {
+        if (
+          !(await db.catalogs
+            .filter(
+              (c) => c.category === "instruction" && c.name === "Diskusikan",
+            )
+            .count())
+        )
+          await db.catalogs.add({
+            id: "digital-instruction-diskusikan",
+            name: "Diskusikan",
+            category: "instruction",
+            active: true,
+            order: 100,
+          });
+        return;
+      }
       const letters = await db.letters.toArray();
       const extras =
         (await db.settings.get("main"))?.extraInstructions

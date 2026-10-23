@@ -2352,3 +2352,252 @@ mark {
 .nota-attachment-heading {
   break-after: avoid;
 }
+
+.digital-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.digital-summary button,
+.digital-summary .stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #dce6ed;
+  padding: 16px;
+  border-radius: 10px;
+}
+.digital-summary strong {
+  font-size: 25px;
+  color: #236c9e;
+}
+.digital-summary [aria-pressed="true"] {
+  border-color: #236c9e;
+  background: #edf6fb;
+}
+.digital-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 20px;
+  align-items: start;
+}
+.digital-document,
+.digital-directions {
+  min-width: 0;
+}
+.digital-document {
+  position: sticky;
+  top: 12px;
+}
+.digital-instructions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+.digital-instructions label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+}
+.digital-task p {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.digital-task details {
+  margin: 16px 0;
+}
+.digital-task summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.digital-tree-node {
+  border-left: 2px solid #a8c9df;
+  margin: 12px 0;
+  padding-left: 12px;
+}
+.digital-tree-node .digital-tree-node {
+  margin-left: 14px;
+}
+.digital-mobile-tabs {
+  display: none;
+}
+.digital-prewrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.digital-diff {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.digital-diff pre {
+  overflow: auto;
+  max-height: 360px;
+  font-size: 11px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.digital-print-sheet {
+  background: white;
+  color: #000;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 18mm 18mm 20mm 22mm;
+  margin: auto;
+  font:
+    12pt/1.25 "Times New Roman",
+    serif;
+}
+.digital-print-sheet p {
+  line-height: 1.25;
+  margin: 7pt 0;
+}
+.digital-print-sheet h1 {
+  text-align: center;
+  color: #000;
+  font: 700 16pt "Times New Roman";
+  margin: 12pt 0;
+}
+.digital-print-sheet h2 {
+  color: #000;
+  font: 700 12pt "Times New Roman";
+  margin: 12pt 0 6pt;
+}
+.digital-print-sheet header {
+  text-align: center;
+}
+.digital-print-sheet table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  color: #000;
+}
+.digital-print-sheet th,
+.digital-print-sheet td {
+  border: 1px solid #000;
+  background: white;
+  color: #000;
+  padding: 6pt;
+  vertical-align: top;
+  font: 12pt/1.25 "Times New Roman";
+  overflow-wrap: anywhere;
+}
+.digital-print-sheet th {
+  font-weight: 700;
+}
+.digital-print-sheet tbody th {
+  width: 30%;
+}
+.digital-print-sheet li {
+  margin: 4pt 0;
+}
+.digital-print-signature {
+  width: 52%;
+  margin: 18pt 0 14pt auto;
+  text-align: center;
+  break-inside: avoid;
+}
+.digital-signature-space {
+  height: 24mm;
+}
+.digital-print-continuation {
+  break-before: page;
+  margin-top: 24pt;
+}
+.digital-print-sheet footer {
+  font-size: 10pt;
+  margin-top: 12pt;
+}
+@media (max-width: 1000px) {
+  .digital-columns {
+    display: block;
+  }
+  .digital-document {
+    position: static;
+  }
+  .digital-mobile-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .digital-mobile-tabs [aria-selected="true"] {
+    background: #246ca1;
+    color: white;
+  }
+  .digital-tab-Dokumen .digital-directions,
+  .digital-tab-Disposisi .digital-document {
+    display: none;
+  }
+  .digital-diff {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 700px) {
+  .digital-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+  .digital-instructions {
+    grid-template-columns: 1fr;
+  }
+  .digital-tree-node {
+    padding-left: 5px;
+  }
+  .digital-print-root {
+    overflow: auto;
+  }
+}
+@media print {
+  body:has(.digital-print-root) .print-only {
+    display: none !important;
+  }
+  .digital-print-root {
+    overflow: visible;
+  }
+  .digital-print-sheet {
+    padding: 0;
+    margin: 0;
+    width: auto;
+    min-height: 0;
+    box-shadow: none;
+  }
+  .digital-print-sheet thead {
+    display: table-header-group;
+  }
+  .digital-print-sheet tr {
+    break-inside: avoid;
+  }
+  .digital-print-sheet p {
+    orphans: 3;
+    widows: 3;
+  }
+  .digital-print-continuation {
+    margin-top: 0;
+  }
+  .digital-print-signature,
+  .digital-print-sheet footer {
+    break-inside: avoid;
+  }
+}
+.digital-pdf-page {
+  width: 100%;
+  max-height: 720px;
+  overflow: auto;
+  background: #edf1f5;
+  padding: 8px;
+  box-sizing: border-box;
+}
+.digital-pdf-page canvas {
+  display: block;
+  background: white;
+  max-width: none;
+}
+.digital-image-page {
+  overflow: auto;
+  max-height: 720px;
+}

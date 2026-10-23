@@ -36,6 +36,7 @@ export async function processAnalytics(from: string, to: string, zone: string) {
     }).format(new Date(instant));
   const period = tasks.filter(
     (t) =>
+      !t.retired &&
       !["Dibatalkan"].includes(t.status) &&
       !dispositions.find((d) => d.id === t.dispositionId)?.cancelled &&
       date(t.createdAt) >= from &&

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dispositionSchemas } from "./dispositionSchemas";
 import { notaSchemas } from "./notaSchemas";
 import { stage3Schemas } from "./stage3Schemas";
 import { db } from "../storage/db";
@@ -26,34 +27,64 @@ const letter = base.extend({
   attachmentIds: z.array(z.string()),
   createdAt: z.iso.datetime(),
 });
-const recipient = z.object({
-  unitId: z.string(),
-  unitName: z.string(),
-  userId: z.string(),
-  kind: z.enum(["Utama", "Pendukung", "Tembusan"]),
-  instruction: z.string(),
-  deadline: z.iso.date(),
-});
+const recipient = z
+  .object({
+    unitId: z.string(),
+    unitName: z.string(),
+    userId: z.string(),
+    kind: z.enum(["Utama", "Pendukung", "Tembusan"]),
+    instruction: z.string(),
+    deadline: z.union([z.iso.date(), z.literal("")]),
+  })
+  .passthrough();
 const disposition = base.extend({
+  digital: z.boolean().optional(),
+  issuerId: z.string().optional(),
+  issuerPosition: z.string().optional(),
+  mode: z.enum(["Penugasan", "Untuk diketahui"]).optional(),
+  issuedAt: z.iso.datetime().optional(),
+  updatedAt: z.iso.datetime().optional(),
+  version: z.number().int().positive().optional(),
+  revision: z.number().int().positive().optional(),
+  reviewerId: z.string().optional(),
+  reportRequired: z.boolean().optional(),
   letterId: z.string(),
   giver: z.string(),
   recipients: z.array(recipient),
   instructions: z.array(z.string()),
   notes: z.string(),
-  deadline: z.iso.date(),
+  deadline: z.union([z.iso.date(), z.literal("")]),
   review: z.boolean(),
   createdAt: z.iso.datetime(),
   cancelled: z.boolean().optional(),
 });
 const task = base.extend({
+  digital: z.boolean().optional(),
+  retired: z.boolean().optional(),
+  revision: z.number().int().positive().optional(),
+  recipientId: z.string().optional(),
+  issuerId: z.string().optional(),
+  reviewerId: z.string().optional(),
+  userName: z.string().optional(),
+  positionName: z.string().optional(),
+  reportRequired: z.boolean().optional(),
+  reconfirmRequired: z.boolean().optional(),
+  consolidateChildren: z.boolean().optional(),
+  readAt: z.iso.datetime().optional(),
+  acceptedAt: z.iso.datetime().optional(),
+  startedAt: z.iso.datetime().optional(),
+  submittedAt: z.iso.datetime().optional(),
+  reviewedAt: z.iso.datetime().optional(),
+  completedAt: z.iso.datetime().optional(),
   letterId: z.string(),
   dispositionId: z.string(),
   unitId: z.string(),
   unitName: z.string(),
   userId: z.string(),
   instruction: z.string(),
-  deadline: z.iso.date(),
+  deadline: z.union([z.iso.date(), z.literal("")]),
   status: z.enum([
+    "Belum diterima",
     "Belum dibaca",
     "Dibaca",
     "Diterima",
@@ -69,6 +100,7 @@ const task = base.extend({
 export const schemas = {
   ...stage3Schemas,
   ...notaSchemas,
+  ...dispositionSchemas,
   letters: letter,
   outgoing: base.extend({
     subject: z.string(),

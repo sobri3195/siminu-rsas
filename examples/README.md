@@ -1,5 +1,16 @@
 # Contoh dokumen lokal
 
+## Disposisi Digital (v5)
+
+- [Contoh cetak terbit — dua halaman A4](disposisi-digital-contoh.pdf)
+- [Contoh draf belum diterbitkan](disposisi-digital-draf.pdf)
+- [Catatan panjang — empat halaman A4](disposisi-digital-catatan-panjang.pdf)
+- [Panduan dan skenario URTU–SIMRS–Mutu](../docs/DISPOSISI_DIGITAL.md)
+
+Berkas dibuat oleh pengujian browser produksi. Semua identitas/surat/tindakan disposisi adalah data contoh, tanpa tanda tangan/stempel. Contoh terbit berasal dari alur offline hingga delegasi, perbaikan hasil, selesai, dan arsip. Draf bertanda belum diterbitkan. Catatan panjang mempertahankan penanda akhir dan rincian per penerima.
+
+Contoh mengikuti struktur isian permintaan pengguna; **Format Disposisi RSAS resmi belum tersedia untuk pembandingan**. Untuk mencoba dengan data terhubung, pilih mode demo dan tombol Siapkan contoh digital. Tidak perlu mengimpor PDF contoh sebagai data aplikasi.
+
 ## Nota Dinas khusus RSAS (v4)
 
 - [Contoh DOCX yang dapat diedit](nota-dinas-rsas-contoh.docx)
