@@ -2833,6 +2833,7 @@ mark {
   }
 }
 @media print {
+  html:has(.mail-paper),
   body:has(.mail-paper),
   body:has(.mail-paper) .app-shell,
   body:has(.mail-paper) .main-shell,
