@@ -42,6 +42,13 @@ export function DataCenter() {
       ...(await db.reports.toArray()).flatMap((r) => r.attachmentIds),
       ...(await db.minutes.toArray()).flatMap((r) => r.attachmentIds),
       ...(await db.drafts.toArray()).flatMap((r) => r.attachmentIds),
+      ...(await db.draftVersions.toArray()).flatMap(
+        (r) => r.attachmentIds || [],
+      ),
+      ...(await db.dispatches.toArray()).flatMap((r) => [
+        ...r.proofIds,
+        ...r.receiptIds,
+      ]),
       ...(await db.notes.toArray()).flatMap((r) =>
         r.content.attachments.map((a) => a.id),
       ),
@@ -173,7 +180,7 @@ export function DataCenter() {
         <section className="panel">
           <h2>Pulihkan cadangan</h2>
           <p>
-            Validasi format, skema v5 (kompatibel paket v2/v3/v4),
+            Validasi format, skema v6 (kompatibel paket v2/v3/v4/v5),
             jumlah/ukuran, referensi dan SHA-256 dilakukan sebelum database
             diubah. Batas paket 150 MB, 30 MB per berkas.
           </p>
@@ -242,6 +249,18 @@ export function DataCenter() {
               <option value="replace">Ganti seluruh data aktif</option>
             </select>
           </Field>
+          {!!pkg.numberConflicts?.length && (
+            <div className="warning">
+              <strong>Konflik nomor antarperangkat</strong>
+              {pkg.numberConflicts.map((n) => (
+                <p key={n}>{n}</p>
+              ))}
+              <p>
+                Penggabungan diblokir. Perbaiki paket sumber, atau pilih Ganti
+                seluruh data aktif dengan konfirmasi dan cadangan otomatis.
+              </p>
+            </div>
+          )}
           {mode === "merge" &&
             conflicts.map((c) => (
               <Field
@@ -275,7 +294,8 @@ export function DataCenter() {
             disabled={
               busy ||
               (mode === "merge" &&
-                conflicts.some((c) => !choices[`${c.table}:${c.id}`]))
+                (!!pkg.numberConflicts?.length ||
+                  conflicts.some((c) => !choices[`${c.table}:${c.id}`])))
             }
             onClick={() => {
               if (

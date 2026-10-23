@@ -200,7 +200,7 @@ it("cadangan skema 3 mencakup naskah, versi, notulen, bundel dan Blob; paket v2 
     [new File(["Bukti notulen asli"], "bukti.txt")],
   );
   let pkg = await validateFullBackup(await createFullBackup());
-  expect(pkg.manifest.schemaVersion).toBe(5);
+  expect(pkg.manifest.schemaVersion).toBe(6);
   expect(pkg.tables.draftVersions).toHaveLength(2);
   expect(pkg.tables.minutes).toHaveLength(1);
   expect(

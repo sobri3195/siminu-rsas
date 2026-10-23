@@ -1,3 +1,4 @@
+import { assertReplyClosed } from "./mail";
 import { z } from "zod";
 import { db } from "../storage/db";
 import type {
@@ -74,6 +75,7 @@ export async function register(
       )
         throw Error("Nomor agenda sudah digunakan pada tahun ini.");
       for (const file of files) {
+        if (file.size > 20 * 1024 * 1024) throw Error("Batas berkas 20 MB.");
         const aid = id();
         letter.attachmentIds.push(aid);
         await db.attachments.add({
@@ -301,29 +303,29 @@ export async function taskAction(
   );
 }
 export async function archive(letterId: string, author: string) {
-  await db.transaction(
-    "rw",
-    [db.letters, db.tasks, db.dispositions, db.activities],
-    async () => {
-      const l = await db.letters.get(letterId);
-      const active = new Set(
-        (await db.dispositions.where({ letterId }).toArray())
-          .filter((d) => !d.cancelled)
-          .map((d) => d.id),
+  await db.transaction("rw", db.tables, async () => {
+    await assertReplyClosed(letterId);
+    const l = await db.letters.get(letterId);
+    const active = new Set(
+      (await db.dispositions.where({ letterId }).toArray())
+        .filter((d) => !d.cancelled)
+        .map((d) => d.id),
+    );
+    const open = (await db.tasks.where({ letterId }).toArray()).some(
+      (t) =>
+        active.has(t.dispositionId) &&
+        !["Selesai", "Dibatalkan"].includes(t.status),
+    );
+    const assessment = await db.replyAssignments.get(letterId);
+    const replyAssessed =
+      assessment && assessment.decision !== "Perlu penilaian";
+    if (!l || (l.status !== "Selesai" && !replyAssessed) || open)
+      throw Error(
+        "Surat hanya dapat diarsipkan setelah semua kewajiban selesai.",
       );
-      const open = (await db.tasks.where({ letterId }).toArray()).some(
-        (t) =>
-          active.has(t.dispositionId) &&
-          !["Selesai", "Dibatalkan"].includes(t.status),
-      );
-      if (l?.status !== "Selesai" || open)
-        throw Error(
-          "Surat hanya dapat diarsipkan setelah semua kewajiban selesai.",
-        );
-      await db.letters.update(letterId, { status: "Diarsipkan" });
-      await log(letterId, "Surat diarsipkan", author);
-    },
-  );
+    await db.letters.update(letterId, { status: "Diarsipkan" });
+    await log(letterId, "Surat diarsipkan", author);
+  });
 }
 export async function delegate(task: Task, unitId: string, author: string) {
   await db.transaction("rw", [db.tasks, db.units, db.activities], async () => {

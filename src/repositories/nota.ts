@@ -531,6 +531,7 @@ export async function noteAction(
       ];
       const used = new Set([
         ...(await db.noteNumbers.toArray()).map((x) => x.id),
+        ...(await db.mailNumbers.toArray()).map((x) => x.id),
         ...(await db.outgoing.toArray()).map((x) => x.number),
       ]);
       do {

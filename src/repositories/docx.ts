@@ -1,3 +1,4 @@
+import { richBlocks, inlineRuns } from "./notaDocument";
 import {
   Document,
   Packer,
@@ -5,8 +6,13 @@ import {
   TextRun,
   AlignmentType,
   HeadingLevel,
+  Table,
+  TableRow,
+  TableCell,
+  ImageRun,
+  WidthType,
 } from "docx";
-import type { DraftContent, MeetingMinutes } from "../types";
+import type { DraftContent, MeetingMinutes, Attachment } from "../types";
 import { dateLabel } from "../utils";
 const paras = (text: string) =>
   text.split("\n").map(
@@ -20,7 +26,75 @@ export async function draftDocx(
   kind: string,
   content: DraftContent,
   official = false,
+  files: Attachment[] = [],
 ) {
+  const rich = (text: string) =>
+    richBlocks(text).map((b) =>
+      b.kind === "table"
+        ? new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: b.rows.map(
+              (row, j) =>
+                new TableRow({
+                  tableHeader: j === 0,
+                  children: row.map(
+                    (cell) =>
+                      new TableCell({
+                        children: [
+                          new Paragraph({
+                            children: inlineRuns(cell).map(
+                              (r) => new TextRun(r),
+                            ),
+                          }),
+                        ],
+                      }),
+                  ),
+                }),
+            ),
+          })
+        : new Paragraph({
+            children: inlineRuns(b.text).map((r) => new TextRun(r)),
+            spacing: { after: 120 },
+          }),
+    );
+  const attachmentNodes: (Paragraph | Table)[] = [];
+  for (const [i, f] of files.entries()) {
+    attachmentNodes.push(
+      new Paragraph({
+        text: `Lampiran ${i + 1} · ${content.number || content.conceptNumber || "DRAF"} · ${f.title || f.name}`,
+        pageBreakBefore: true,
+        keepNext: true,
+      }),
+    );
+    if (f.type.startsWith("image/")) {
+      const bmp = await createImageBitmap(f.blob);
+      const scale = Math.min(530 / bmp.width, 600 / bmp.height, 1);
+      const w = bmp.width * scale,
+        h = bmp.height * scale;
+      bmp.close();
+      attachmentNodes.push(
+        new Paragraph({
+          keepNext: true,
+          children: [
+            new ImageRun({
+              type: f.type === "image/jpeg" ? "jpg" : "png",
+              data: new Uint8Array(await f.blob.arrayBuffer()),
+              transformation: { width: w, height: h },
+            }),
+          ],
+        }),
+      );
+    } else
+      attachmentNodes.push(
+        new Paragraph({
+          text: f.name + " — berkas terpisah, unduh lampiran asli.",
+          keepNext: true,
+        }),
+      );
+    attachmentNodes.push(
+      new Paragraph({ text: f.caption || "", keepLines: true }),
+    );
+  }
   const rows = [
     ["Nomor", content.number || "Belum diberi nomor"],
     ["Tanggal", dateLabel(content.date)],
@@ -30,12 +104,36 @@ export async function draftDocx(
   ];
   return Packer.toBlob(
     new Document({
+      styles: {
+        default: {
+          document: {
+            run: {
+              font: content.font || "Times New Roman",
+              size: 24,
+              color: "000000",
+            },
+          },
+        },
+        paragraphStyles: [
+          {
+            id: "Heading1",
+            name: "Heading 1",
+            basedOn: "Normal",
+            run: { color: "000000", bold: true },
+          },
+        ],
+      },
       sections: [
         {
           properties: {
             page: {
               size: { width: 11906, height: 16838 },
-              margin: { top: 1134, bottom: 1134, left: 1417, right: 1134 },
+              margin: {
+                top: Number(content.margin || 25) * 56.69,
+                bottom: Number(content.margin || 25) * 56.69,
+                left: Number(content.margin || 25) * 56.69,
+                right: Number(content.margin || 25) * 56.69,
+              },
             },
           },
           children: [
@@ -51,6 +149,7 @@ export async function draftDocx(
                 : "CONTOH/DEMO — TEMPLATE GENERIK, BUKAN FORMAT RESMI",
               alignment: AlignmentType.CENTER,
             }),
+            ...paras(content.number ? "" : "DRAF — BELUM DITERBITKAN"),
             ...rows.map(
               ([k, v]) =>
                 new Paragraph({
@@ -60,19 +159,34 @@ export async function draftDocx(
                   ],
                 }),
             ),
-            ...paras(
-              "\nDasar:\n" +
-                content.basis +
-                "\n\n" +
-                content.body +
-                "\n\n" +
+            ...rich(
+              [
+                content.address,
+                content.conceptNumber,
+                content.referenceText,
+                content.basis,
+                content.opening,
+                content.body,
                 content.closing,
+              ]
+                .filter(Boolean)
+                .join("\n"),
             ),
             new Paragraph({
-              text: "\n\n\n" + content.signer,
-              alignment: AlignmentType.RIGHT,
+              text: "Lampiran: " + (content.attachmentCount || files.length),
             }),
-            ...paras("Tembusan:\n" + content.copies),
+            new Paragraph({
+              children: content.signer
+                .split("\n")
+                .map(
+                  (line, i) => new TextRun({ text: line, break: i ? 1 : 0 }),
+                ),
+              spacing: { before: 900 },
+              alignment: AlignmentType.RIGHT,
+              keepLines: true,
+            }),
+            ...rich("Tembusan:\n" + content.copies),
+            ...attachmentNodes,
           ],
         },
       ],

@@ -1,3 +1,5 @@
+import { ReplyActions } from "./ReplyManagement";
+import { LocalDocumentPreview } from "../components/LocalDocumentPreview";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -151,6 +153,7 @@ export function Detail() {
           <Printer size={18} /> Cetak disposisi
         </Link>
       </div>
+      <ReplyActions letterId={lid} />
       <div className="toolbar">
         <Link className="button" to={"/disposisi?surat=" + lid}>
           Buka Disposisi Digital surat ini
@@ -287,7 +290,7 @@ export function Detail() {
                       <Plus size={17} /> Buat disposisi
                     </button>
                   )}
-                {canRegister(user.role) && letter.status === "Selesai" && (
+                {canRegister(user.role) && letter.status !== "Diarsipkan" && (
                   <button
                     onClick={() =>
                       run(

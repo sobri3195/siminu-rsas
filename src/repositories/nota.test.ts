@@ -267,7 +267,7 @@ it("ZIP v4 memulihkan nota, komentar, profil, template, nomor, snapshot dan Blob
   });
   n = await noteAction(n.id, n.revision, "register", "user-1");
   const pkg = await validateFullBackup(await createFullBackup());
-  expect(pkg.manifest.schemaVersion).toBe(5);
+  expect(pkg.manifest.schemaVersion).toBe(6);
   expect(pkg.tables.noteVersions.length).toBeGreaterThan(4);
   expect(pkg.tables.noteTemplates).toHaveLength(7);
   expect(pkg.tables.noteReviews.length).toBeGreaterThan(2);

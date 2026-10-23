@@ -2,6 +2,12 @@
 
 Sistem Informasi Manajemen Administrasi Umum RSAU Prof. dr. Abdulrachman Saleh. Frontend React + Vite + TypeScript untuk uji satu perangkat, tanpa backend, API key, CDN fungsi utama, atau layanan berbayar. Tema dan alur aplikasi sebelumnya dipertahankan. Lihat [inventaris perubahan](docs/INVENTORY.md).
 
+## Pengelolaan Surat Terpadu (v6)
+
+Alur Surat Masuk → penilaian kebutuhan balasan → konsep dan pemeriksaan → persetujuan simulasi → register nomor → Surat Keluar → ekspedisi manual per tujuan → arsip. Rangkaian surat menghubungkan sumber, disposisi, koreksi, dokumen final dan bukti berdasarkan ID. Konsep aktif dilanjutkan atau ditambah secara eksplisit; konsep yang disetujui belum dianggap selesai dikirim.
+
+Editor naskah yang sudah ada diperluas dengan referensi terpilih, lampiran berversi, dua panel A4, format teks/tabel bersama untuk cetak dan DOCX, konflik revisi, serta surat terbit yang terkunci. Nomor lokal unik secara transaksional dan nomor batal tidak digunakan ulang. Database/ZIP v6 mempertahankan data lama serta menerima paket v2–v5. [Panduan lengkap dan uji coba](docs/PENGELOLAAN_SURAT_TERPADU.md) dan [contoh cetak/DOCX](examples/README.md) disertakan. Template/pola nomor awal tetap rancangan, karena contoh format resmi RSAS belum diberikan.
+
 ## Disposisi Digital (v5)
 
 Pusat Disposisi Digital menyediakan draf otomatis, penerbitan transaksional, snapshot penerima/jabatan, baca terpisah dari pengerjaan, delegasi/konsolidasi, laporan dan pemeriksaan hasil, revisi/perpanjangan beralasan, cetak versi, serta laporan waktu aktual. [Panduan dan skenario URTU–SIMRS–Mutu](docs/DISPOSISI_DIGITAL.md) menjelaskan alur lengkap, offline, dan batas format resmi yang belum tersedia.
@@ -58,7 +64,7 @@ Agenda mencatat waktu, PIC, lokasi dan surat terkait. Pengingat dihitung saat ap
 
 ## Pusat Data Lokal
 
-**Cadangan lengkap ZIP** berisi metadata JSON, manifest skema 5 (kompatibel paket skema 2/3/4), versi aplikasi, waktu ekspor, jumlah entitas, nama/ukuran berkas dan SHA-256, serta byte asli semua lampiran surat, bukti hasil dan surat keluar. Tidak mengekspor blob URL. Ekspor metadata JSON lama tetap tersedia sebagai pelengkap tanpa isi berkas.
+**Cadangan lengkap ZIP** berisi metadata JSON, manifest skema 6 (kompatibel paket skema 2/3/4/5), versi aplikasi, waktu ekspor, jumlah entitas, nama/ukuran berkas dan SHA-256, serta byte asli semua lampiran surat, bukti hasil dan surat keluar. Tidak mengekspor blob URL. Ekspor metadata JSON lama tetap tersedia sebagai pelengkap tanpa isi berkas.
 
 Pemulihan memeriksa format/versi, struktur ZIP, jumlah/ukuran, ID unik, referensi, hierarki dan checksum sebelum menulis. Batas saat ini: paket 150 MB, per berkas 30 MB, maksimal 2.500 lampiran. Untuk Gabungkan, selesaikan setiap konflik ID dengan pilihan data lokal atau impor. Data yang berubah setelah pratinjau meminta peninjauan ulang. Untuk Ganti seluruh data, paket pemulihan otomatis disimpan dalam transaksi yang sama sebelum mengganti data aktif dan dapat diunduh. Pemulihan atomik menampilkan jumlah berhasil, dilewati dan konflik. Mode database lain tidak disentuh.
 
@@ -72,7 +78,7 @@ Vercel: framework Vite, build `npm run build`, output `dist`. `vercel.json` meny
 
 ## Bukti verifikasi dan batasan
 
-Tes repository memeriksa alur multiunit/tembusan/perbaikan, pembatalan/riwayat, delegasi siklik, agenda bersamaan, konflik revisi, migrasi v1→v2→v3→v4→v5 beserta Blob, ZIP/checksum/referensi rusak, pemulihan/konflik/cadangan otomatis dan CSV formula.
+Tes repository memeriksa alur multiunit/tembusan/perbaikan, pembatalan/riwayat, delegasi siklik, agenda bersamaan, konflik revisi, migrasi v1→v2→v3→v4→v5→v6 beserta Blob, ZIP/checksum/referensi rusak, pemulihan/konflik/cadangan otomatis dan CSV formula.
 
 Skenario Chromium memakai build produksi: alur surat hingga arsip; offline dengan koneksi browser dimatikan; URL detail langsung, pencarian, surat/lampiran baru, disposisi, progres, cetak dan ZIP saat offline; restart browser dengan profil sama; dua tab; simulasi quota; pemulihan ZIP melalui UI; reset contoh yang menjaga data lokal; pembaruan service worker saat draf terbuka; desktop, tablet, keyboard, dan 360 px. Pengujian cetak menghasilkan PDF normal dan catatan panjang; ini bukan pengujian semua printer fisik.
 

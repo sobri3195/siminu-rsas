@@ -2601,3 +2601,244 @@ mark {
   overflow: auto;
   max-height: 720px;
 }
+
+/* Surat terpadu: shared A4 document, responsive editor and local workload cards. */
+.mail-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 12px;
+}
+.mail-metrics a {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+}
+.mail-metrics strong {
+  font-size: 28px;
+  color: var(--primary, #155e75);
+}
+.mail-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: 24px;
+  align-items: start;
+}
+.mail-editor-form {
+  grid-column: 1;
+  grid-row: 1;
+}
+.mail-a4-preview {
+  grid-column: 2;
+  grid-row: 1;
+  overflow: auto;
+  background: #edf1f5;
+  padding: 8px;
+  max-height: 1100px;
+}
+.mail-paper {
+  width: 210mm;
+  min-height: 297mm;
+  box-sizing: border-box;
+  background: white;
+  color: black !important;
+  font-size: 12pt;
+  line-height: 1.45;
+  margin: 0 auto;
+}
+.mail-paper * {
+  color: black !important;
+}
+.mail-paper p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mail-paper table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: collapse;
+}
+.mail-paper td {
+  border: 1px solid black;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mail-paper .signature {
+  break-inside: avoid;
+  white-space: pre-wrap;
+}
+.mail-attachment {
+  break-before: page;
+  break-inside: avoid;
+  margin: 0;
+}
+.mail-attachment img {
+  width: 100%;
+  max-height: 205mm;
+  object-fit: contain;
+  height: auto;
+}
+.reply-panel h2 {
+  margin: 0;
+}
+.mail-paper h1 {
+  font-size: 16pt;
+}
+@media (max-width: 1100px) {
+  .mail-editor-layout {
+    display: block;
+  }
+  .mail-editor-layout.show-form .mail-a4-preview {
+    display: none;
+  }
+  .mail-editor-layout.show-paper .mail-editor-form {
+    display: none;
+  }
+  .mail-a4-preview {
+    max-height: none;
+  }
+  .mail-paper {
+    width: 100%;
+    min-width: 300px;
+    padding: 20px !important;
+  }
+}
+@media print {
+  .mail-editor-layout {
+    display: block !important;
+  }
+  .mail-editor-form,
+  .mail-editor-layout + .no-print {
+    display: none !important;
+  }
+  .mail-a4-preview {
+    display: block !important;
+    padding: 0;
+    max-height: none;
+    overflow: visible;
+    background: white;
+  }
+  .mail-paper {
+    width: auto;
+    min-width: 0;
+    min-height: 0;
+    padding: 0 !important;
+    box-shadow: none;
+    border: 0;
+  }
+  .mail-paper table {
+    page-break-inside: auto;
+  }
+  .mail-paper tr {
+    break-inside: auto;
+  }
+  .mail-paper .signature {
+    break-inside: avoid;
+  }
+  .mail-paper thead {
+    display: table-header-group;
+  }
+  .mail-attachment img {
+    max-height: 205mm;
+  }
+  .mail-metrics {
+    display: none;
+  }
+}
+@font-face {
+  font-family: "RSAS Serif";
+  src: url("/fonts/LiberationSerif-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "RSAS Serif";
+  src: url("/fonts/LiberationSerif-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "RSAS Serif";
+  src: url("/fonts/LiberationSerif-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "RSAS Serif";
+  src: url("/fonts/LiberationSerif-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "RSAS Sans";
+  src: url("/fonts/LiberationSans-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "RSAS Sans";
+  src: url("/fonts/LiberationSans-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "RSAS Sans";
+  src: url("/fonts/LiberationSans-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "RSAS Sans";
+  src: url("/fonts/LiberationSans-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+@media print {
+  body:has(.mail-paper) .print-only {
+    display: none !important;
+  }
+  .mail-paper {
+    font-size: 12pt !important;
+  }
+  .mail-paper figure {
+    margin-inline: 0;
+  }
+  .mail-paper figure p {
+    margin: 4pt 0;
+  }
+  .mail-paper table p {
+    margin: 0;
+  }
+  .mail-paper header {
+    break-after: avoid;
+  }
+}
+@media print {
+  body:has(.mail-paper) .panel {
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: white !important;
+  }
+  .mail-paper dl > div {
+    border: 0;
+  }
+}
+@media print {
+  html:has(.mail-paper),
+  body:has(.mail-paper),
+  body:has(.mail-paper) .app-shell,
+  body:has(.mail-paper) .main-shell,
+  body:has(.mail-paper) .content,
+  body:has(.mail-paper) .mail-a4-preview {
+    background: white !important;
+  }
+}
